@@ -504,6 +504,8 @@ class _EmblemPainter extends CustomPainter {
   }
 }
 
+final ValueNotifier<int> inforttsTabController = ValueNotifier<int>(0);
+
 /// Centralized app shell with splash screen, auth gate, and bottom-navigation workspace.
 class InforttsAppShell extends StatefulWidget {
   final String appName;
@@ -532,23 +534,42 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   bool _isAuthenticated = false;
   int _activeTab = 0;
   AuthSession? _authSession;
+  String _settingsSubPage = "main";
 
   late final List<InforttsTab> _tabs;
 
   @override
   void initState() {
     super.initState();
-    _tabs = widget.additionalTabs ?? [
-      InforttsTab(label: "Dashboard", icon: Icons.dashboard_outlined, builder: (_) => widget.workspaceChild),
-      InforttsTab(label: "Profile", icon: Icons.account_circle_outlined, builder: _buildProfileView),
+    inforttsTabController.value = 0;
+    inforttsTabController.addListener(_onTabChangedByController);
+    _tabs = [
+      if (widget.additionalTabs != null)
+        ...widget.additionalTabs!
+      else ...[
+        InforttsTab(label: "Dashboard", icon: Icons.dashboard_outlined, builder: (_) => widget.workspaceChild),
+      ],
       InforttsTab(label: "Settings", icon: Icons.settings_outlined, builder: (_) => _buildSettingsView()),
-      InforttsTab(label: "About", icon: Icons.info_outline, builder: (_) => _buildAboutView()),
     ];
     Timer(const Duration(milliseconds: 2600), () {
       if (mounted) {
         setState(() { _showSplash = false; });
       }
     });
+  }
+
+  void _onTabChangedByController() {
+    if (mounted) {
+      setState(() {
+        _activeTab = inforttsTabController.value;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    inforttsTabController.removeListener(_onTabChangedByController);
+    super.dispose();
   }
 
   void _handleMockLogin(String email, String password) {
@@ -579,8 +600,8 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     setState(() {
       _isAuthenticated = false;
       _authSession = null;
-      _activeTab = 0;
     });
+    inforttsTabController.value = 0;
   }
 
   @override
@@ -618,7 +639,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               final tab = _tabs[i];
               return Expanded(
                 child: InkWell(
-                  onTap: () => setState(() => _activeTab = i),
+                  onTap: () => inforttsTabController.value = i,
                   borderRadius: BorderRadius.circular(8),
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 250),
@@ -966,7 +987,52 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     );
   }
 
+  Widget _buildSubPageHeader(String title) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AcousticColors.darkCarbon,
+        border: Border(bottom: BorderSide(color: AcousticColors.midGray.withOpacity(0.12), width: 0.8)),
+      ),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back, color: AcousticColors.sonarCyan, size: 20),
+            onPressed: () => setState(() => _settingsSubPage = "main"),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            title,
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.5,
+              color: AcousticColors.titanium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSettingsView() {
+    if (_settingsSubPage == "profile") {
+      return Column(
+        children: [
+          _buildSubPageHeader("OPERATOR PROFILE"),
+          Expanded(child: _buildProfileView(context)),
+        ],
+      );
+    }
+    if (_settingsSubPage == "about") {
+      return Column(
+        children: [
+          _buildSubPageHeader("ABOUT SYSTEM"),
+          Expanded(child: _buildAboutView()),
+        ],
+      );
+    }
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
@@ -1009,6 +1075,34 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray),
               ),
               const SizedBox(height: 24),
+              // Profile and About section links inside Settings
+              Card(
+                color: AcousticColors.black.withOpacity(0.3),
+                margin: const EdgeInsets.only(bottom: 24),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  side: BorderSide(color: AcousticColors.midGray.withOpacity(0.15), width: 0.8),
+                ),
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.person_outline, color: AcousticColors.sonarCyan, size: 20),
+                      title: Text("OPERATOR PROFILE", style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.titanium, fontWeight: FontWeight.bold)),
+                      subtitle: Text("Centralized credentials & OAuth details", style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray)),
+                      trailing: const Icon(Icons.chevron_right, color: AcousticColors.steel, size: 18),
+                      onTap: () => setState(() => _settingsSubPage = "profile"),
+                    ),
+                    Divider(color: AcousticColors.midGray.withOpacity(0.15), height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.info_outline, color: AcousticColors.sonarCyan, size: 20),
+                      title: Text("ABOUT SYSTEM", style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.titanium, fontWeight: FontWeight.bold)),
+                      subtitle: Text("Coded lifeform description & 3D emblem", style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray)),
+                      trailing: const Icon(Icons.chevron_right, color: AcousticColors.steel, size: 18),
+                      onTap: () => setState(() => _settingsSubPage = "about"),
+                    ),
+                  ],
+                ),
+              ),
               _buildSettingsToggle("LOCAL LLM OFFLINE COMPILER", true),
               const SizedBox(height: 16),
               _buildSettingsToggle("GLYCOCALYX AUTO-SYNC TOKEN", true),
@@ -1063,8 +1157,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
             ],
           ),
         ),
-      ),
-    ).animate().fadeIn(duration: 400.ms);
+    );
   }
 
   Widget _buildSettingsToggle(String label, bool initialVal) {
