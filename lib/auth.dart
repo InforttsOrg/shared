@@ -8,7 +8,18 @@ import 'package:http/http.dart' as http;
 class AuthConfig {
   final String baseUrl;
 
-  const AuthConfig({this.baseUrl = 'http://localhost:8020'});
+  const AuthConfig({this.baseUrl = ''});
+
+  String get effectiveBaseUrl {
+    if (baseUrl.isNotEmpty) return baseUrl;
+    if (kIsWeb) {
+      final host = Uri.base.host;
+      if (host.isNotEmpty && host != 'localhost' && host != '127.0.0.1') {
+        return 'https://auth.infortts.com';
+      }
+    }
+    return 'http://localhost:8020';
+  }
 }
 
 class AuthSession {
@@ -39,9 +50,9 @@ class GlycocalyxAuth {
 
   GlycocalyxAuth({AuthConfig? config, http.Client? client})
       : config = config ?? const AuthConfig(),
-        _client = client ?? http.Client();
+      _client = client ?? http.Client();
 
-  String get _apiBase => config.baseUrl;
+  String get _apiBase => config.effectiveBaseUrl;
 
   Uri _uri(String path, [Map<String, String>? query]) {
     return Uri.parse('$_apiBase$path').replace(queryParameters: query);
@@ -65,7 +76,7 @@ class GlycocalyxAuth {
       headers: _headers(),
       body: jsonEncode({
         'provider': provider,
-        'redirect': redirect ?? config.baseUrl,
+        'redirect': redirect ?? config.effectiveBaseUrl,
       }),
     );
     if (resp.statusCode != 200) {

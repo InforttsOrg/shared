@@ -7,6 +7,7 @@ import 'theme.dart';
 import 'auth.dart';
 import 'brand.dart';
 import 'animations.dart';
+import 'url_helper.dart';
 
 class InforttsTab {
   final String label;
@@ -535,12 +536,14 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   int _activeTab = 0;
   AuthSession? _authSession;
   String _settingsSubPage = "main";
+  late final GlycocalyxAuth _authClient;
 
   late final List<InforttsTab> _tabs;
 
   @override
   void initState() {
     super.initState();
+    _authClient = widget.auth ?? GlycocalyxAuth();
     inforttsTabController.value = 0;
     inforttsTabController.addListener(_onTabChangedByController);
     _tabs = [
@@ -556,6 +559,26 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         setState(() { _showSplash = false; });
       }
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkForUrlToken();
+    });
+  }
+
+  void _checkForUrlToken() async {
+    final token = getTokenFromUrl();
+    if (token != null && token.isNotEmpty) {
+      try {
+        final session = await _authClient.session(token);
+        if (session.authenticated) {
+          setState(() {
+            _isAuthenticated = true;
+            _authSession = session;
+          });
+        }
+      } catch (e) {
+        debugPrint("Auth session check failed: $e");
+      }
+    }
   }
 
   void _onTabChangedByController() {
@@ -586,14 +609,18 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   }
 
   void _handleGoogleSSO() async {
-    setState(() {
-      _isAuthenticated = true;
-      _authSession = AuthSession(
-        userId: "sso_google_129482",
-        email: "sahil.rathee@infortts.com",
-        profile: {"display_name": "SAHIL RATHEE", "username": "sahilrathee", "avatar_url": ""},
+    try {
+      final redirectUrl = getCleanCurrentUrl();
+      final authUrl = await _authClient.login(
+        provider: 'google',
+        redirect: redirectUrl,
       );
-    });
+      redirectUser(authUrl);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to initiate login: $e')),
+      );
+    }
   }
 
   void _handleLogout() {
@@ -1157,6 +1184,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
             ],
           ),
         ),
+      ),
     );
   }
 
