@@ -1,23 +1,29 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:http/http.dart' as http;
 import 'theme.dart';
 import 'auth.dart';
 import 'brand.dart';
 import 'animations.dart';
 import 'url_helper.dart';
+import 'error.dart';
 
 class InforttsTab {
   final String label;
   final IconData icon;
   final WidgetBuilder builder;
+  final Widget? iconWidget;
 
   const InforttsTab({
     required this.label,
     required this.icon,
     required this.builder,
+    this.iconWidget,
   });
 }
 
@@ -608,7 +614,40 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     }
   }
 
+  bool get _isDesktop => !kIsWeb;
+
+  void _handleDevBypassLogin() async {
+    try {
+      final resp = await http.post(
+        Uri.parse('${_authClient.config.effectiveBaseUrl}/auth/dev-login'),
+      );
+      if (resp.statusCode != 200) {
+        showErrorSnackBar(context, 'Dev bypass failed: ${resp.body}');
+        return;
+      }
+      final data = jsonDecode(resp.body) as Map<String, dynamic>;
+      final token = data['token'] as String?;
+      if (token == null) {
+        showErrorSnackBar(context, 'No token from dev bypass');
+        return;
+      }
+      final session = await _authClient.session(token);
+      if (session.authenticated) {
+        setState(() {
+          _isAuthenticated = true;
+          _authSession = session;
+        });
+      }
+    } catch (e) {
+      showErrorSnackBar(context, 'Dev bypass error: $e');
+    }
+  }
+
   void _handleGoogleSSO() async {
+    if (_isDesktop) {
+      _handleDevBypassLogin();
+      return;
+    }
     try {
       final redirectUrl = getCleanCurrentUrl();
       final authUrl = await _authClient.login(
@@ -617,9 +656,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       );
       redirectUser(authUrl);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to initiate login: $e')),
-      );
+      showErrorSnackBar(context, 'Failed to initiate login: $e');
     }
   }
 
@@ -678,11 +715,12 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
-                          tab.icon,
-                          size: 20,
-                          color: isActive ? AcousticColors.sonarCyan : AcousticColors.steel,
-                        ),
+                        tab.iconWidget ??
+                            Icon(
+                              tab.icon,
+                              size: 20,
+                              color: isActive ? AcousticColors.sonarCyan : AcousticColors.steel,
+                            ),
                         const SizedBox(height: 2),
                         Text(
                           tab.label,
@@ -894,9 +932,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   onPressed: _handleGoogleSSO,
-                  icon: const Icon(Icons.security, size: 16, color: AcousticColors.sonarCyan),
+                  icon: Icon(_isDesktop ? Icons.developer_mode : Icons.security, size: 16, color: AcousticColors.sonarCyan),
                   label: Text(
-                    "AUTHENTICATE WITH GOOGLE SSO",
+                    _isDesktop ? "DEV BYPASS LOGIN (LOCAL)" : "AUTHENTICATE WITH GOOGLE SSO",
                     style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan, letterSpacing: 1.0),
                   ),
                   style: OutlinedButton.styleFrom(

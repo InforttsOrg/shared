@@ -9,4 +9,6 @@ export 'brand.dart';
 export 'auth.dart';
 export 'shell.dart';
 export 'url_helper.dart';
+export 'error.dart';
+export 'logs.dart';
 
