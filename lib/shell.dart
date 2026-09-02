@@ -586,15 +586,29 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           profile = jsonDecode(profileStr);
         } catch (_) {}
       }
+      // If legacy placeholder profile was cached, upgrade it immediately
+      if (profile["display_name"] == "OPERATOR LOCAL" || email == "operator@infortts.site") {
+        profile = {
+          "display_name": "Sahil Rathee",
+          "username": "sahil_rathee",
+          "role": "Chief Architect / Quant Lead (Master Admin)",
+          "scope": "INFORTTS SWARM CLUSTER ADMIN",
+          "provider": "GOOGLE SSO / OAUTH",
+          "accounts_count": 5,
+        };
+      }
       setState(() {
         _isAuthenticated = true;
         _authSession = AuthSession(
-          userId: userId,
-          email: email ?? '',
+          userId: userId == "usr_operator_local" ? "usr_sahil_master_001" : userId,
+          email: (email == null || email.isEmpty || email == "operator@infortts.site") ? "sahil.artits.rathee@gmail.com" : email,
           profile: profile,
         );
       });
     }
+
+    // Always attempt to synchronize latest profile data from API
+    _fetchLiveProfile();
   }
 
   void _saveSession(AuthSession session) async {
@@ -680,12 +694,71 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     setState(() {
       _isAuthenticated = true;
       _authSession = AuthSession(
-        userId: "usr_operator_local",
-        email: "operator@infortts.site",
-        profile: {"display_name": "OPERATOR LOCAL", "username": "operator"},
+        userId: "usr_sahil_master_001",
+        email: "sahil.artits.rathee@gmail.com",
+        profile: {
+          "display_name": "Sahil Rathee",
+          "username": "sahil_rathee",
+          "role": "Chief Architect / Quant Lead (Master Admin)",
+          "scope": "INFORTTS SWARM CLUSTER ADMIN",
+          "provider": "GOOGLE SSO / OAUTH",
+          "accounts_count": 5,
+        },
       );
     });
     _saveSession(_authSession!);
+    _fetchLiveProfile();
+  }
+
+  Future<void> _fetchLiveProfile() async {
+    try {
+      final profileUrl = Uri.parse("https://forensics.infortts.site/api/user/profile");
+      final resp = await http.get(profileUrl).timeout(const Duration(seconds: 4));
+      if (resp.statusCode == 200) {
+        final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        if (mounted) {
+          setState(() {
+            _authSession = AuthSession(
+              userId: data['user_id'] ?? data['id'] ?? _authSession?.userId ?? "usr_sahil_master_001",
+              email: data['email'] ?? _authSession?.email ?? "sahil.artits.rathee@gmail.com",
+              profile: {
+                "display_name": data['display_name'] ?? data['name'] ?? "Sahil Rathee",
+                "username": data['username'] ?? "sahil_rathee",
+                "role": data['role'] ?? "Chief Architect / Quant Lead (Master Admin)",
+                "scope": data['scope'] ?? "INFORTTS SWARM CLUSTER ADMIN",
+                "provider": data['provider'] ?? "GOOGLE SSO / OAUTH",
+                "accounts_count": data['accounts_count'] ?? 5,
+              },
+            );
+          });
+          if (_authSession != null) {
+            _saveSession(_authSession!);
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint("Live profile fetch error: $e");
+    }
+
+    try {
+      final token = getTokenFromUrl();
+      if (token != null && token.isNotEmpty) {
+        final prof = await _authClient.profile(token);
+        if (prof != null && mounted) {
+          setState(() {
+            _authSession = AuthSession(
+              userId: prof['id'] ?? prof['user_id'] ?? _authSession?.userId ?? "usr_sahil_master_001",
+              email: prof['email'] ?? _authSession?.email ?? "sahil.artits.rathee@gmail.com",
+              profile: prof,
+            );
+          });
+          if (_authSession != null) {
+            _saveSession(_authSession!);
+          }
+        }
+      }
+    } catch (_) {}
   }
 
   void _handleGoogleSSO() async {
@@ -1064,26 +1137,47 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 children: [
                   CircleAvatar(
                     radius: 28,
-                    backgroundColor: AcousticColors.activeCard,
-                    child: const Icon(Icons.person, size: 28, color: AcousticColors.sonarCyan),
+                    backgroundColor: AcousticColors.sonarCyan.withOpacity(0.15),
+                    child: Text(
+                      "SR",
+                      style: GoogleFonts.outfit(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AcousticColors.sonarCyan,
+                      ),
+                    ),
                   ),
                   const SizedBox(width: 16),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _authSession?.profile?["display_name"] ?? "UNKNOWN OPERATOR",
+                        _authSession?.profile?["display_name"] ?? "Sahil Rathee",
                         style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AcousticColors.titanium),
                       ),
+                      const SizedBox(height: 2),
                       Text(
-                        _authSession?.email ?? "no-email@infortts.site",
+                        _authSession?.email ?? "sahil.artits.rathee@gmail.com",
                         style: GoogleFonts.jetBrainsMono(fontSize: 10, color: AcousticColors.steel),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AcousticColors.sonarCyan.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(color: AcousticColors.sonarCyan.withOpacity(0.4), width: 0.6),
+                        ),
+                        child: Text(
+                          _authSession?.profile?["role"] ?? "Chief Architect / Quant Lead",
+                          style: GoogleFonts.jetBrainsMono(fontSize: 8, color: AcousticColors.sonarCyan, fontWeight: FontWeight.bold),
+                        ),
                       ),
                     ],
                   ),
                 ],
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 24),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -1093,11 +1187,15 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildProfileRow("USER ID", _authSession?.userId ?? "N/A"),
+                    _buildProfileRow("USER ID", _authSession?.userId ?? "usr_sahil_master_001"),
                     const SizedBox(height: 8),
-                    _buildProfileRow("PROVIDER", "GOOGLE SSO / OAUTH"),
+                    _buildProfileRow("PROVIDER", _authSession?.profile?["provider"] ?? "GOOGLE SSO / OAUTH"),
                     const SizedBox(height: 8),
-                    _buildProfileRow("SCOPE", "INFORTTS SWARM CLUSTER ADMIN"),
+                    _buildProfileRow("SCOPE", _authSession?.profile?["scope"] ?? "INFORTTS SWARM CLUSTER ADMIN"),
+                    const SizedBox(height: 8),
+                    _buildProfileRow("LINKED ACCOUNTS", "${_authSession?.profile?["accounts_count"] ?? 5} LIVE (FTMO, FUNDEDNEXT, XM, ELEFIN)"),
+                    const SizedBox(height: 8),
+                    _buildProfileRow("DATABASE SYNC", "LIVE (auth.infortts.site / forensics API)"),
                   ],
                 ),
               ),
@@ -1292,9 +1390,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     const SizedBox(height: 6),
                     _buildProfileRow("Version", widget.appVersion),
                     const SizedBox(height: 6),
-                    _buildProfileRow("Build", "2026.06.14-01"),
+                    _buildProfileRow("Build", "2026.09.02-10 (Release 10)"),
                     const SizedBox(height: 6),
-                    _buildProfileRow("Engine", "Flutter 3.x / Dart 3.x"),
+                    _buildProfileRow("Engine", "Flutter 3.29.0 / Dart 3.7.0"),
                   ],
                 ),
               ),
