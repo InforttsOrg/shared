@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -817,23 +818,69 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     inforttsTabController.value = 0;
   }
 
+  DateTime? _lastBackPressTime;
+
+  void _handleAndroidBack() {
+    // 1. If currently inside a settings sub-page (profile, about), return to settings main
+    if (_settingsSubPage != "main") {
+      setState(() {
+        _settingsSubPage = "main";
+      });
+      return;
+    }
+
+    // 2. If on any tab other than tab 0 (Trades/Dashboard), return to tab 0
+    if (_activeTab != 0) {
+      inforttsTabController.value = 0;
+      return;
+    }
+
+    // 3. If on tab 0 at top level, double-tap back to exit
+    final now = DateTime.now();
+    if (_lastBackPressTime == null || now.difference(_lastBackPressTime!) > const Duration(seconds: 2)) {
+      _lastBackPressTime = now;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            "Press back again to exit",
+            style: GoogleFonts.outfit(color: AcousticColors.titanium, fontSize: 12),
+          ),
+          backgroundColor: AcousticColors.darkCarbon,
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    // Double back within 2 seconds: close application
+    SystemNavigator.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_showSplash) return _buildSplashView();
     if (!_isAuthenticated) return _buildAuthView();
 
-    return Scaffold(
-      backgroundColor: AcousticColors.black,
-      body: Column(
-        children: [
-          Expanded(
-            child: SafeArea(
-              bottom: false,
-              child: _tabs[_activeTab].builder(context),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleAndroidBack();
+      },
+      child: Scaffold(
+        backgroundColor: AcousticColors.black,
+        body: Column(
+          children: [
+            Expanded(
+              child: SafeArea(
+                bottom: false,
+                child: _tabs[_activeTab].builder(context),
+              ),
             ),
-          ),
-          _buildBottomNav(),
-        ],
+            _buildBottomNav(),
+          ],
+        ),
       ),
     );
   }
