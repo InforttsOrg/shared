@@ -956,20 +956,25 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Infortts3DLogo(appName: widget.appName, size: 220.0),
+                Infortts3DLogo(appName: widget.appName, size: 200.0),
                 const SizedBox(height: 32),
-                Text(
-                  widget.appName.toUpperCase(),
-                  style: GoogleFonts.outfit(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 8.0,
-                    color: AcousticColors.titanium,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                  child: Text(
+                    widget.appName.replaceAll(RegExp(r'\s+by\s+infortts.*', caseSensitive: false), '').trim().toUpperCase(),
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.outfit(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 6.0,
+                      color: AcousticColors.titanium,
+                    ),
                   ),
                 ).animate().fadeIn(duration: 600.ms).slideY(begin: 0.2, end: 0.0),
                 const SizedBox(height: 8),
                 Text(
                   "BY INFORTTS™",
+                  textAlign: TextAlign.center,
                   style: GoogleFonts.outfit(
                     fontSize: 10,
                     fontWeight: FontWeight.w600,
