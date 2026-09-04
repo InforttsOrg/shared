@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme.dart';
 import 'auth.dart';
@@ -520,7 +521,7 @@ final ValueNotifier<int> inforttsTabController = ValueNotifier<int>(0);
 class InforttsAppShell extends StatefulWidget {
   final String appName;
   final String appDescription;
-  final String appVersion;
+  final String? appVersion;
   final Widget workspaceChild;
   final List<InforttsTab>? additionalTabs;
   final GlycocalyxAuth? auth;
@@ -529,7 +530,7 @@ class InforttsAppShell extends StatefulWidget {
     super.key,
     required this.appName,
     required this.appDescription,
-    required this.appVersion,
+    this.appVersion,
     required this.workspaceChild,
     this.additionalTabs,
     this.auth,
@@ -546,12 +547,16 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   AuthSession? _authSession;
   String _settingsSubPage = "main";
   late final GlycocalyxAuth _authClient;
+  String _currentVersion = "";
+  String _currentBuildNumber = "";
 
   late final List<InforttsTab> _tabs;
 
   @override
   void initState() {
     super.initState();
+    _currentVersion = widget.appVersion ?? "";
+    _initPackageInfo();
     _authClient = widget.auth ?? GlycocalyxAuth();
     inforttsTabController.value = 0;
     inforttsTabController.addListener(_onTabChangedByController);
@@ -572,6 +577,22 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       _restoreSession();
       _checkForUrlToken();
     });
+  }
+
+  Future<void> _initPackageInfo() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) {
+        setState(() {
+          if (info.version.isNotEmpty) {
+            _currentVersion = info.version;
+          }
+          if (info.buildNumber.isNotEmpty) {
+            _currentBuildNumber = info.buildNumber;
+          }
+        });
+      }
+    } catch (_) {}
   }
 
   void _restoreSession() async {
@@ -1011,7 +1032,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    "v${widget.appVersion}",
+                    "v${_currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '1.0.0')}",
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 9,
                       color: AcousticColors.sonarCyan,
@@ -1357,7 +1378,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      "V${widget.appVersion}",
+                      "V${_currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '1.0.0')}",
                       style: GoogleFonts.jetBrainsMono(fontSize: 9, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan),
                     ),
                   ),
@@ -1440,9 +1461,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                   children: [
                     _buildProfileRow("App", widget.appName),
                     const SizedBox(height: 6),
-                    _buildProfileRow("Version", widget.appVersion),
+                    _buildProfileRow("Version", _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '1.0.0')),
                     const SizedBox(height: 6),
-                    _buildProfileRow("Build", "2026.09.02-10 (Release 10)"),
+                    _buildProfileRow("Build", _currentBuildNumber.isNotEmpty ? "Build $_currentBuildNumber" : "Production"),
                     const SizedBox(height: 6),
                     _buildProfileRow("Engine", "Flutter 3.29.0 / Dart 3.7.0"),
                   ],
@@ -1459,102 +1480,195 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.steel)),
-        Transform.scale(
-          scale: 0.8,
-          child: Switch(
-            value: initialVal,
-            activeColor: AcousticColors.sonarCyan,
-            onChanged: (_) {},
-          ),
+        Text(
+          label,
+          style: GoogleFonts.jetBrainsMono(fontSize: 10, color: AcousticColors.titanium),
+        ),
+        Switch(
+          value: initialVal,
+          onChanged: (_) {},
+          activeColor: AcousticColors.sonarCyan,
         ),
       ],
     );
   }
 
   Widget _buildAboutView() {
-    return Center(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisAlignment: MainAxisAlignment.center,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 680;
+        final logoSize = isMobile ? 160.0 : 240.0;
+
+        return Center(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: isMobile ? 16 : 32,
+              vertical: isMobile ? 20 : 32,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Infortts3DLogo(appName: widget.appName, size: 240.0),
-                const SizedBox(width: 48),
-                Container(
-                  width: 380,
-                  padding: const EdgeInsets.all(28),
-                  decoration: BoxDecoration(
-                    color: AcousticColors.panelBg.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AcousticColors.midGray.withOpacity(0.15)),
+                if (isMobile) ...[
+                  Infortts3DLogo(appName: widget.appName, size: logoSize),
+                  const SizedBox(height: 24),
+                  Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AcousticColors.panelBg.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AcousticColors.midGray.withOpacity(0.15)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          widget.appName.toUpperCase(),
+                          style: GoogleFonts.outfit(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 3.0,
+                            color: AcousticColors.titanium,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "SYSTEM CODED LIFEFORM",
+                          style: GoogleFonts.outfit(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: AcousticColors.sonarCyan,
+                            letterSpacing: 2.0,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          widget.appDescription,
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            color: AcousticColors.steel,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Divider(color: AcousticColors.midGray, thickness: 0.5),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Material Base:", style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray)),
+                            Text("Tactile Obsidian & Titanium", style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.steel)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Emissive Wave:", style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray)),
+                            Text("Acoustic Cyan/Blue channels", style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.sonarCyan)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text("Version / Build:", style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray)),
+                            Text(_currentVersion.isNotEmpty ? "v$_currentVersion${_currentBuildNumber.isNotEmpty ? ' (+$_currentBuildNumber)' : ''}" : "v${widget.appVersion ?? '1.0.0'}", style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.sonarCyan)),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                ] else ...[
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
-                        widget.appName.toUpperCase(),
-                        style: GoogleFonts.outfit(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 4.0,
-                          color: AcousticColors.titanium,
+                      Infortts3DLogo(appName: widget.appName, size: 240.0),
+                      const SizedBox(width: 48),
+                      Container(
+                        width: 380,
+                        padding: const EdgeInsets.all(28),
+                        decoration: BoxDecoration(
+                          color: AcousticColors.panelBg.withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: AcousticColors.midGray.withOpacity(0.15)),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        "SYSTEM CODED LIFEFORM",
-                        style: GoogleFonts.outfit(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: AcousticColors.sonarCyan,
-                          letterSpacing: 2.0,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.appName.toUpperCase(),
+                              style: GoogleFonts.outfit(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 4.0,
+                                color: AcousticColors.titanium,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              "SYSTEM CODED LIFEFORM",
+                              style: GoogleFonts.outfit(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w600,
+                                color: AcousticColors.sonarCyan,
+                                letterSpacing: 2.0,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              widget.appDescription,
+                              style: GoogleFonts.outfit(
+                                fontSize: 12,
+                                color: AcousticColors.steel,
+                                height: 1.5,
+                              ),
+                            ),
+                            const SizedBox(height: 24),
+                            const Divider(color: AcousticColors.midGray, thickness: 0.5),
+                            const SizedBox(height: 12),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text("Material Base:", style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray)),
+                                Text("Tactile Obsidian & Titanium", style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.steel)),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text("Emissive Wave:", style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray)),
+                                Text("Acoustic Cyan/Blue channels", style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.sonarCyan)),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text("Version / Build:", style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray)),
+                                Text(_currentVersion.isNotEmpty ? "v$_currentVersion${_currentBuildNumber.isNotEmpty ? ' (+$_currentBuildNumber)' : ''}" : "v${widget.appVersion ?? '1.0.0'}", style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.sonarCyan)),
+                              ],
+                            ),
+                          ],
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        widget.appDescription,
-                        style: GoogleFonts.outfit(
-                          fontSize: 12,
-                          color: AcousticColors.steel,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      const Divider(color: AcousticColors.midGray, thickness: 0.5),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text("Material Base:", style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray)),
-                          Text("Tactile Obsidian & Titanium", style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.steel)),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text("Emissive Wave:", style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray)),
-                          Text("Acoustic Cyan/Blue channels", style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.sonarCyan)),
-                        ],
                       ),
                     ],
                   ),
+                ],
+                const SizedBox(height: 24),
+                Text(
+                  "INFORTTS ECOSYSTEM OS • BY GOOGLE DEEPMIND PAIR PROGRAMMER",
+                  style: GoogleFonts.outfit(fontSize: 8, color: AcousticColors.midGray, letterSpacing: 2.0),
                 ),
               ],
             ),
-            const SizedBox(height: 24),
-            Text(
-              "INFORTTS ECOSYSTEM OS • BY GOOGLE DEEPMIND PAIR PROGRAMMER",
-              style: GoogleFonts.outfit(fontSize: 8, color: AcousticColors.midGray, letterSpacing: 2.0),
-            ),
-          ],
-        ),
-      ),
-    ).animate().fadeIn(duration: 400.ms);
+          ),
+        ).animate().fadeIn(duration: 400.ms);
+      },
+    );
   }
 }
 
