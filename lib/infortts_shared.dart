@@ -11,4 +11,5 @@ export 'shell.dart';
 export 'url_helper.dart';
 export 'error.dart';
 export 'logs.dart';
+export 'shorebird_manager.dart';
 
