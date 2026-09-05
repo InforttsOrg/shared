@@ -1,0 +1,8 @@
+# Cloudflare API Credentials & Configuration
+cloudflare_account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+cloudflare_api_token  = "YOUR_CLOUDFLARE_API_TOKEN"
+cloudflare_zone_id   = "YOUR_CLOUDFLARE_ZONE_ID_FOR_INFORTTS_SITE"
+
+bucket_name = "infortts-ota-patches"
+ota_domain  = "ota.infortts.site"
+environment = "production"
