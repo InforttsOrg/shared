@@ -1,0 +1,11 @@
+# Terraform local state & secrets
+*.tfvars
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# Build & Dart cache
+.dart_tool/
+build/
+*.lock
