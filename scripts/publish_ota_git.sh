@@ -68,4 +68,3 @@ git push origin main
 echo "✅ OTA Patch #$PATCH_NUM for $APP published to Cloudflare CDN!"
 echo "   Public Manifest URL: https://infortts.site/patches/$APP/v$VERSION/manifest.json"
 echo "   Public Patch Binary: https://infortts.site/patches/$APP/v$VERSION/patch_$PATCH_NUM.bin"
-EOF
