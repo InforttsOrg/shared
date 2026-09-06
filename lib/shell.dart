@@ -628,7 +628,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     _otaCronTimer?.cancel();
     _otaCronTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
       if (!mounted || _isCheckingOtaCron || _isOtaModalShowing) return;
-      _isCheckingOtaCron = true;
+      if (mounted) setState(() { _isCheckingOtaCron = true; });
       try {
         final cdnEngine = InforttsCdnOtaEngine(
           appName: widget.appName.toLowerCase(),
@@ -645,9 +645,20 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         }
       } catch (_) {
       } finally {
-        _isCheckingOtaCron = false;
+        if (mounted) setState(() { _isCheckingOtaCron = false; });
       }
     });
+  }
+
+  Widget _buildFlashingOtaIcon() {
+    if (!_isCheckingOtaCron) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4.0),
+      child: const Icon(Icons.sensors_rounded, size: 14, color: AcousticColors.sonarCyan)
+          .animate(onPlay: (controller) => controller.repeat(reverse: true))
+          .fadeIn(duration: 200.ms)
+          .scaleXY(begin: 0.7, end: 1.25, duration: 350.ms),
+    );
   }
 
   void _restoreSession() async {
@@ -1492,11 +1503,13 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 ),
                 child: Column(
                   children: [
-                    _buildProfileRow("NATS HOST", "nats://localhost:4222"),
+                    _buildProfileRow("NATS HOST", const String.fromEnvironment('NATS_HOST', defaultValue: 'nats://nats.infortts.site:4222')),
                     const SizedBox(height: 6),
-                    _buildProfileRow("VECTOR DB", "qdrant://localhost:6333"),
+                    _buildProfileRow("VECTOR DB", const String.fromEnvironment('VECTOR_DB_URL', defaultValue: 'qdrant://qdrant.infortts.site:6333')),
                     const SizedBox(height: 6),
-                    _buildProfileRow("POSTGRES", "postgres://localhost:5432"),
+                    _buildProfileRow("FORENSICS API", const String.fromEnvironment('FORENSICS_API_URL', defaultValue: 'https://forensics.infortts.site/api/v1')),
+                    const SizedBox(height: 6),
+                    _buildProfileRow("OTA CDN", const String.fromEnvironment('OTA_CDN_URL', defaultValue: 'https://infortts.site/patches')),
                   ],
                 ),
               ),
@@ -1524,20 +1537,41 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     const SizedBox(height: 6),
                     _buildProfileRow("Track", "Internal Track (Internal Testing)"),
                     const SizedBox(height: 6),
-                    _buildProfileRow("Infortts OTA", _shorebirdPatchText),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, fontSize: 11)),
+                              _buildFlashingOtaIcon(),
+                            ],
+                          ),
+                          Text(_shorebirdPatchText, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                        ],
+                      ),
+                    ),
                     const SizedBox(height: 12),
                     Row(
                       children: [
                         Expanded(
-                          child: OutlinedButton.icon(
+                          child: OutlinedButton(
                             style: OutlinedButton.styleFrom(
                               side: BorderSide(color: AcousticColors.sonarCyan.withOpacity(0.5)),
                               padding: const EdgeInsets.symmetric(vertical: 9),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                             ),
                             onPressed: () => _handleShorebirdCheck(context),
-                            icon: const Icon(Icons.system_update_alt_rounded, size: 14, color: AcousticColors.sonarCyan),
-                            label: Text("Check OTA Updates", style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan)),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const Icon(Icons.system_update_alt_rounded, size: 14, color: AcousticColors.sonarCyan),
+                                _buildFlashingOtaIcon(),
+                                const SizedBox(width: 4),
+                                Text("Check OTA Updates", style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan)),
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -1902,6 +1936,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   }
 
   Future<void> _handleShorebirdCheck(BuildContext context) async {
+    if (mounted) setState(() { _isCheckingOtaCron = true; });
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(
       SnackBar(
@@ -1921,30 +1956,34 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       ),
     );
 
-    final cdnEngine = InforttsCdnOtaEngine(
-      appName: widget.appName.toLowerCase(),
-      appVersion: _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.02.00'),
-    );
-
-    final manifest = await cdnEngine.fetchManifest();
-    final currentLocalPatch = await cdnEngine.getLocalPatchNumber();
-
-    messenger.clearSnackBars();
-
-    if (manifest != null && manifest.latestPatch > currentLocalPatch) {
-      if (mounted && !_isOtaModalShowing) {
-        _showNewPatchAvailableModal(context, manifest, cdnEngine);
-      }
-    } else {
-      messenger.showSnackBar(
-        SnackBar(
-          backgroundColor: AcousticColors.darkCarbon,
-          content: Text(
-            "✓ No updates available. System is up to date (Patch #${currentLocalPatch} active).",
-            style: GoogleFonts.outfit(color: AcousticColors.sonarCyan),
-          ),
-        ),
+    try {
+      final cdnEngine = InforttsCdnOtaEngine(
+        appName: widget.appName.toLowerCase(),
+        appVersion: _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.02.00'),
       );
+
+      final manifest = await cdnEngine.fetchManifest();
+      final currentLocalPatch = await cdnEngine.getLocalPatchNumber();
+
+      messenger.clearSnackBars();
+
+      if (manifest != null && manifest.latestPatch > currentLocalPatch) {
+        if (mounted && !_isOtaModalShowing) {
+          _showNewPatchAvailableModal(context, manifest, cdnEngine);
+        }
+      } else {
+        messenger.showSnackBar(
+          SnackBar(
+            backgroundColor: AcousticColors.darkCarbon,
+            content: Text(
+              "✓ No updates available. System is up to date (Patch #${currentLocalPatch} active).",
+              style: GoogleFonts.outfit(color: AcousticColors.sonarCyan),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() { _isCheckingOtaCron = false; });
     }
   }
 
