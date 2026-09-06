@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:shorebird_code_push/shorebird_code_push.dart';
+import 'cdn_ota_engine.dart';
 
-/// Structured status state for Shorebird OTA lifecycle in Infortts apps
+/// Structured status state for OTA lifecycle in Infortts apps
 enum ShorebirdOtaStatus {
   disabled,
   idle,
@@ -14,7 +14,7 @@ enum ShorebirdOtaStatus {
   error,
 }
 
-/// Structured telemetry object snapshot for Shorebird diagnostics
+/// Structured telemetry object snapshot for OTA diagnostics
 class ShorebirdTelemetry {
   final bool isAvailable;
   final int? currentPatchNumber;
@@ -46,13 +46,11 @@ class ShorebirdTelemetry {
       'ShorebirdTelemetry(isAvailable: $isAvailable, currentPatch: $currentPatchNumber, nextPatch: $nextPatchNumber, status: ${status.name})';
 }
 
-/// Infortts Shared Shorebird OTA Manager & Telemetry API
+/// Infortts Shared R2 CDN OTA Manager & Telemetry API
 class InforttsShorebirdManager {
   static final InforttsShorebirdManager _instance = InforttsShorebirdManager._internal();
   factory InforttsShorebirdManager() => _instance;
   InforttsShorebirdManager._internal();
-
-  final ShorebirdUpdater _updater = ShorebirdUpdater();
 
   final ValueNotifier<ShorebirdTelemetry> telemetryNotifier = ValueNotifier<ShorebirdTelemetry>(
     ShorebirdTelemetry(
@@ -64,15 +62,13 @@ class InforttsShorebirdManager {
     ),
   );
 
-  /// Synchronous check whether Shorebird Engine is active on this build/platform
-  bool get isShorebirdAvailable => _updater.isAvailable;
+  bool get isShorebirdAvailable => true;
 
   /// Retrieve the active patch number running in current memory
-  Future<int?> getCurrentPatchNumber() async {
-    if (!isShorebirdAvailable) return null;
+  Future<int?> getCurrentPatchNumber({String appName = 'app', String appVersion = '2.02.00'}) async {
     try {
-      final patch = await _updater.readCurrentPatch();
-      return patch?.number;
+      final engine = InforttsCdnOtaEngine(appName: appName, appVersion: appVersion);
+      return await engine.getLocalPatchNumber();
     } catch (e) {
       if (kDebugMode) print('[InforttsShorebirdManager] Error reading current patch: $e');
       return null;
@@ -80,56 +76,29 @@ class InforttsShorebirdManager {
   }
 
   /// Retrieve the downloaded next patch number pending restart
-  Future<int?> getNextPatchNumber() async {
-    if (!isShorebirdAvailable) return null;
-    try {
-      final patch = await _updater.readNextPatch();
-      return patch?.number;
-    } catch (e) {
-      if (kDebugMode) print('[InforttsShorebirdManager] Error reading next patch: $e');
-      return null;
-    }
+  Future<int?> getNextPatchNumber({String appName = 'app', String appVersion = '2.02.00'}) async {
+    return getCurrentPatchNumber(appName: appName, appVersion: appVersion);
   }
 
-  /// Full diagnostic inspection of Shorebird status & patch telemetry
-  Future<ShorebirdTelemetry> inspect({UpdateTrack track = UpdateTrack.stable}) async {
-    if (!isShorebirdAvailable) {
-      final t = ShorebirdTelemetry(
-        isAvailable: false,
-        currentPatchNumber: null,
-        nextPatchNumber: null,
-        status: ShorebirdOtaStatus.disabled,
-        lastCheckedAt: DateTime.now(),
-      );
-      telemetryNotifier.value = t;
-      return t;
-    }
-
+  /// Full diagnostic inspection of status & patch telemetry via Cloudflare R2
+  Future<ShorebirdTelemetry> inspect({String appName = 'app', String appVersion = '2.02.00'}) async {
     try {
-      final currentPatch = await _updater.readCurrentPatch();
-      final nextPatch = await _updater.readNextPatch();
-      final status = await _updater.checkForUpdate(track: track);
+      final engine = InforttsCdnOtaEngine(appName: appName, appVersion: appVersion);
+      final currentPatch = await engine.getLocalPatchNumber();
+      final manifest = await engine.fetchManifest();
 
-      ShorebirdOtaStatus otaStatus;
-      switch (status) {
-        case UpdateStatus.outdated:
-          otaStatus = ShorebirdOtaStatus.newPatchAvailable;
-          break;
-        case UpdateStatus.restartRequired:
-          otaStatus = ShorebirdOtaStatus.readyForRestart;
-          break;
-        case UpdateStatus.upToDate:
-          otaStatus = ShorebirdOtaStatus.upToDate;
-          break;
-        case UpdateStatus.unavailable:
-          otaStatus = ShorebirdOtaStatus.disabled;
-          break;
+      ShorebirdOtaStatus otaStatus = ShorebirdOtaStatus.upToDate;
+      int? nextPatch;
+
+      if (manifest != null && manifest.latestPatch > currentPatch) {
+        otaStatus = ShorebirdOtaStatus.newPatchAvailable;
+        nextPatch = manifest.latestPatch;
       }
 
       final t = ShorebirdTelemetry(
         isAvailable: true,
-        currentPatchNumber: currentPatch?.number,
-        nextPatchNumber: nextPatch?.number,
+        currentPatchNumber: currentPatch > 0 ? currentPatch : null,
+        nextPatchNumber: nextPatch,
         status: otaStatus,
         lastCheckedAt: DateTime.now(),
       );
@@ -151,34 +120,39 @@ class InforttsShorebirdManager {
 
   /// Explicitly check for updates and download if available
   Future<bool> checkForUpdatesAndDownload({
-    UpdateTrack track = UpdateTrack.stable,
+    String appName = 'app',
+    String appVersion = '2.02.00',
     void Function(ShorebirdOtaStatus status)? onStatusChanged,
   }) async {
-    if (!isShorebirdAvailable) {
-      onStatusChanged?.call(ShorebirdOtaStatus.disabled);
-      return false;
-    }
-
     try {
       _emitStatus(ShorebirdOtaStatus.checking, onStatusChanged);
+      final engine = InforttsCdnOtaEngine(appName: appName, appVersion: appVersion);
 
-      final status = await _updater.checkForUpdate(track: track);
-      if (status == UpdateStatus.outdated) {
-        _emitStatus(ShorebirdOtaStatus.downloading, onStatusChanged);
+      final success = await engine.checkAndApplyUpdate(
+        autoDownload: true,
+        onStatusChanged: (status, latestPatch) {
+          ShorebirdOtaStatus mapped;
+          switch (status) {
+            case InforttsCdnOtaStatus.downloading:
+              mapped = ShorebirdOtaStatus.downloading;
+              break;
+            case InforttsCdnOtaStatus.installed:
+              mapped = ShorebirdOtaStatus.readyForRestart;
+              break;
+            case InforttsCdnOtaStatus.updateAvailable:
+              mapped = ShorebirdOtaStatus.newPatchAvailable;
+              break;
+            case InforttsCdnOtaStatus.upToDate:
+              mapped = ShorebirdOtaStatus.upToDate;
+              break;
+            default:
+              mapped = ShorebirdOtaStatus.idle;
+          }
+          _emitStatus(mapped, onStatusChanged, nextPatch: latestPatch);
+        },
+      );
 
-        await _updater.update(track: track);
-
-        final nextPatch = await _updater.readNextPatch();
-        _emitStatus(ShorebirdOtaStatus.readyForRestart, onStatusChanged, nextPatch: nextPatch?.number);
-        return true;
-      } else if (status == UpdateStatus.restartRequired) {
-        final nextPatch = await _updater.readNextPatch();
-        _emitStatus(ShorebirdOtaStatus.readyForRestart, onStatusChanged, nextPatch: nextPatch?.number);
-        return true;
-      } else {
-        _emitStatus(ShorebirdOtaStatus.upToDate, onStatusChanged);
-        return false;
-      }
+      return success;
     } catch (e) {
       _emitStatus(ShorebirdOtaStatus.error, onStatusChanged, error: e.toString());
       return false;
@@ -192,7 +166,7 @@ class InforttsShorebirdManager {
     String? error,
   }) {
     telemetryNotifier.value = ShorebirdTelemetry(
-      isAvailable: isShorebirdAvailable,
+      isAvailable: true,
       currentPatchNumber: telemetryNotifier.value.currentPatchNumber,
       nextPatchNumber: nextPatch ?? telemetryNotifier.value.nextPatchNumber,
       status: status,
@@ -202,3 +176,4 @@ class InforttsShorebirdManager {
     callback?.call(status);
   }
 }
+

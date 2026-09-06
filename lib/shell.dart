@@ -11,7 +11,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:shorebird_code_push/shorebird_code_push.dart';
+
 import 'theme.dart';
 import 'auth.dart';
 import 'brand.dart';
@@ -553,7 +553,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   late final GlycocalyxAuth _authClient;
   String _currentVersion = "";
   String _currentBuildNumber = "";
-  String _shorebirdPatchText = "v2.02.00+20200 (Infortts CDN OTA Engine Active [Internal Track])";
+  String _otaPatchText = "v2.02.00+20200 (Infortts R2 CDN OTA Engine Active [update.infortts.site])";
   Timer? _otaCronTimer;
   bool _isCheckingOtaCron = false;
   bool _isOtaModalShowing = false;
@@ -618,7 +618,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         setState(() {
           _currentVersion = bump.version;
           _currentBuildNumber = bump.buildNumber.toString();
-          _shorebirdPatchText = bump.displayString;
+          _otaPatchText = bump.displayString;
         });
       }
       _startOtaCronTimer();
@@ -1556,7 +1556,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                               _buildFlashingOtaIcon(),
                             ],
                           ),
-                          Text(_shorebirdPatchText, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+                          Text(_otaPatchText, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
                         ],
                       ),
                     ),
@@ -1931,7 +1931,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                             setState(() {
                               _currentVersion = bump.version;
                               _currentBuildNumber = bump.buildNumber.toString();
-                              _shorebirdPatchText = bump.displayString;
+                              _otaPatchText = bump.displayString;
                             });
                             _showRestartDialog(context);
                           } else {
@@ -2076,12 +2076,17 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               foregroundColor: Colors.black,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
             ),
-            onPressed: () {
+            onPressed: () async {
               Navigator.of(dialogCtx).pop();
-              if (!kIsWeb) {
-                exit(0);
-              } else {
-                SystemNavigator.pop();
+              try {
+                const channel = MethodChannel('com.infortts.app/restart');
+                await channel.invokeMethod('restartApp');
+              } catch (_) {
+                if (!kIsWeb) {
+                  exit(0);
+                } else {
+                  SystemNavigator.pop();
+                }
               }
             },
             icon: const Icon(Icons.restart_alt_rounded, size: 16),

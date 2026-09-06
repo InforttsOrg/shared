@@ -95,7 +95,7 @@ enum InforttsCdnOtaStatus {
 
 /// Standalone, Zero-Shorebird Custom OTA Engine for Infortts Apps
 class InforttsCdnOtaEngine {
-  static const String defaultCdnBaseUrl = 'https://infortts.site/patches';
+  static const String defaultCdnBaseUrl = 'https://update.infortts.site/patches';
   static const String prefsPatchKeyPrefix = 'infortts_ota_patch_';
 
   final String appName;
@@ -120,9 +120,10 @@ class InforttsCdnOtaEngine {
   /// Check CDN for available manifest & new patches with candidate URL fallbacks
   Future<InforttsOtaManifest?> fetchManifest() async {
     final candidateUrls = [
+      'https://update.infortts.site/manifests/$appName/v$baseAppVersion/manifest.json',
+      'https://update.infortts.site/$appName/v$baseAppVersion/manifest.json',
       'https://forensics.infortts.site/api/v1/ota/check?app=$appName&version=$baseAppVersion',
-      'https://infortts.site/api/ota/manifest?app=$appName&version=$baseAppVersion',
-      'https://infortts.site/ota_${appName}_v${baseAppVersion}_manifest.json',
+      'https://update.infortts.site/ota_${appName}_v${baseAppVersion}_manifest.json',
       '$cdnBaseUrl/$appName/v$baseAppVersion/manifest.json',
       '$cdnBaseUrl/${appName}_v${baseAppVersion}_manifest.json',
     ];
@@ -151,11 +152,10 @@ class InforttsCdnOtaEngine {
 
       final candidatePatchUrls = [
         if (manifest.patchUrl.isNotEmpty) manifest.patchUrl,
+        'https://update.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
+        'https://update.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.so',
+        'https://update.infortts.site/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
         'https://forensics.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
-        'https://forensics.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.so',
-        'https://infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
-        'https://infortts.site/api/ota/patch?app=$appName&version=$baseAppVersion&patch=${manifest.latestPatch}',
-        'https://infortts.site/ota_${appName}_v${baseAppVersion}_patch_${manifest.latestPatch}.bin',
         '$cdnBaseUrl/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
       ];
 
