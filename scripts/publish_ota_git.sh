@@ -49,9 +49,13 @@ MANIFEST_DEST_FILE="$PATCH_DEST_DIR/manifest.json"
 FLAT_PATCH_FILE="$WWW_DIR/public/patches/${APP}_v${VERSION}_patch_${PATCH_NUM}.bin"
 FLAT_MANIFEST_FILE="$WWW_DIR/public/patches/${APP}_v${VERSION}_manifest.json"
 
+ROOT_PATCH_FILE="$WWW_DIR/public/ota_${APP}_v${VERSION}_patch_${PATCH_NUM}.bin"
+ROOT_MANIFEST_FILE="$WWW_DIR/public/ota_${APP}_v${VERSION}_manifest.json"
+
 echo "📦 Copying OTA Patch binary to Cloudflare Pages static CDN paths..."
 cp "$PATCH_FILE" "$PATCH_DEST_FILE"
 cp "$PATCH_FILE" "$FLAT_PATCH_FILE"
+cp "$PATCH_FILE" "$ROOT_PATCH_FILE"
 
 cat <<EOF > "$MANIFEST_DEST_FILE"
 {
@@ -70,6 +74,16 @@ cat <<EOF > "$FLAT_MANIFEST_FILE"
   "latestPatch": $PATCH_NUM,
   "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
   "patchUrl": "https://infortts.site/patches/${APP}_v${VERSION}_patch_${PATCH_NUM}.bin"
+}
+EOF
+
+cat <<EOF > "$ROOT_MANIFEST_FILE"
+{
+  "app": "$APP",
+  "version": "$VERSION",
+  "latestPatch": $PATCH_NUM,
+  "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "patchUrl": "https://infortts.site/ota_${APP}_v${VERSION}_patch_${PATCH_NUM}.bin"
 }
 EOF
 
