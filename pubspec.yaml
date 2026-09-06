@@ -1,6 +1,6 @@
 name: infortts_shared
 description: Shared high-performance, minimalist UI components and themes for Infortts.
-version: 2026.02.00+20260200
+version: 2.02.00+220
 repository: https://github.com/InforttsOrg/project-shared
 publish_to: 'none'
 

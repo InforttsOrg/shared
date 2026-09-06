@@ -159,14 +159,14 @@ class InforttsVersionBump {
 /// Strict Version Bump & Formatting Helper for Infortts OTA
 class InforttsVersionHelper {
   /// Calculate strictly bumped version & build number for an active patch
-  /// Following global Infortts scheme: epoch.2-digit-major.2-digit-minor (e.g. 2026.02.00 or 2026.02.01)
+  /// Following global Infortts scheme: epoch.2-digit-major.2-digit-minor (epoch is 2, e.g. 2.02.00 or 2.02.01)
   static InforttsVersionBump calculateBump({
     required String baseVersion,
     required int baseBuild,
     required int patchNumber,
   }) {
     final parts = baseVersion.split('.');
-    String epochStr = parts.isNotEmpty ? parts[0] : '2026';
+    String epochStr = parts.isNotEmpty ? parts[0] : '2';
     int majorInt = parts.length > 1 ? int.tryParse(parts[1]) ?? 2 : 2;
     int basePatchInt = parts.length > 2 ? int.tryParse(parts[2]) ?? 0 : 0;
 

@@ -37,22 +37,22 @@ void main() {
 
     test('Strict version bump calculation for base release and patch 1', () {
       final baseBump = InforttsVersionHelper.calculateBump(
-        baseVersion: '2026.02.00',
-        baseBuild: 20260200,
+        baseVersion: '2.02.00',
+        baseBuild: 220,
         patchNumber: 0,
       );
-      expect(baseBump.version, equals('2026.02.00'));
-      expect(baseBump.buildNumber, equals(20260200));
-      expect(baseBump.displayString, contains('v2026.02.00+20260200 [Base Release]'));
+      expect(baseBump.version, equals('2.02.00'));
+      expect(baseBump.buildNumber, equals(220));
+      expect(baseBump.displayString, contains('v2.02.00+220 [Base Release]'));
 
       final patch1Bump = InforttsVersionHelper.calculateBump(
-        baseVersion: '2026.02.00',
-        baseBuild: 20260200,
+        baseVersion: '2.02.00',
+        baseBuild: 220,
         patchNumber: 1,
       );
-      expect(patch1Bump.version, equals('2026.02.01'));
-      expect(patch1Bump.buildNumber, equals(20260201));
-      expect(patch1Bump.displayString, contains('v2026.02.01+20260201 (Infortts CDN OTA Patch #1 Active)'));
+      expect(patch1Bump.version, equals('2.02.01'));
+      expect(patch1Bump.buildNumber, equals(221));
+      expect(patch1Bump.displayString, contains('v2.02.01+221 (Infortts CDN OTA Patch #1 Active)'));
 
       final legacyBump = InforttsVersionHelper.calculateBump(
         baseVersion: '2.2.0',
