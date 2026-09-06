@@ -74,9 +74,9 @@ class InforttsDirectOtaEngine {
     DirectOtaInfo(
       isUpdateAvailable: false,
       currentVersion: "2.02.00",
-      currentBuild: 222,
+      currentBuild: 220,
       latestVersion: "2.02.02",
-      latestBuild: 224,
+      latestBuild: 222,
       minRequiredBuild: 220,
       downloadUrl: "",
       releaseNotes: const [],
@@ -88,7 +88,7 @@ class InforttsDirectOtaEngine {
 
   /// Check server for live OTA updates
   Future<DirectOtaInfo> checkUpdate({int? overrideCurrentBuild}) async {
-    int currentBuild = overrideCurrentBuild ?? 222;
+    int currentBuild = overrideCurrentBuild ?? 220;
     String currentVersion = "2.02.00";
 
     try {
