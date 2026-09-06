@@ -599,7 +599,11 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     try {
       final info = await PackageInfo.fromPlatform();
       final baseVersion = info.version.isNotEmpty ? info.version : "2.02.00";
-      final baseBuild = info.buildNumber.isNotEmpty ? (int.tryParse(info.buildNumber) ?? 20200) : 20200;
+      
+      final cleanVer = baseVersion.replaceAll('.', '');
+      final baseBuild = (cleanVer.length == 5 && int.tryParse(cleanVer) != null)
+          ? int.parse(cleanVer)
+          : 20200;
 
       final cdnEngine = InforttsCdnOtaEngine(
         appName: widget.appName.toLowerCase(),

@@ -273,8 +273,8 @@ class InforttsVersionHelper {
     String patchStr = totalPatch.toString().padLeft(2, '0');
     String canonicalVersion = '$epochStr.$majorStr.$patchStr';
 
-    // Build number rule: build number is canonical version without dots (e.g. "2.02.03" -> 20203)
-    int computedBuild = int.tryParse('$epochStr$majorStr$patchStr') ?? (baseBuild + (patchNumber > 0 ? patchNumber : 0));
+    // Build number rule: build number is strictly canonical version without dots (e.g. "2.02.05" -> 20205)
+    int computedBuild = int.tryParse('$epochStr$majorStr$patchStr') ?? 20205;
 
     if (patchNumber <= 0) {
       return InforttsVersionBump(
