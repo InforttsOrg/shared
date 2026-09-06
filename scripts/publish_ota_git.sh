@@ -63,7 +63,7 @@ echo "☁️ Triggering Cloudflare Pages auto-deploy via Git push..."
 cd "$WWW_DIR"
 git add public/patches/ wrangler.toml
 git commit -m "ota: publish $APP v$VERSION patch #$PATCH_NUM to Cloudflare CDN" || true
-git push origin main
+git push origin main && git push origin main:master
 
 echo "✅ OTA Patch #$PATCH_NUM for $APP published to Cloudflare CDN!"
 echo "   Public Manifest URL: https://infortts.site/patches/$APP/v$VERSION/manifest.json"
