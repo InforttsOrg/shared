@@ -557,6 +557,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   Timer? _otaCronTimer;
   bool _isCheckingOtaCron = false;
   bool _isOtaModalShowing = false;
+  int? _dismissedPatchNumber;
 
   late final List<InforttsTab> _tabs;
 
@@ -642,7 +643,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         if (manifest == null) return;
 
         final currentLocalPatch = await cdnEngine.getLocalPatchNumber();
-        if (manifest.latestPatch > currentLocalPatch) {
+        if (manifest.latestPatch > currentLocalPatch && manifest.latestPatch != _dismissedPatchNumber) {
           if (mounted && !_isOtaModalShowing) {
             _showNewPatchAvailableModal(context, manifest, cdnEngine);
           }
@@ -1717,9 +1718,10 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   Future<void> _showNewPatchAvailableModal(
     BuildContext context,
     InforttsOtaManifest manifest,
-    InforttsCdnOtaEngine cdnEngine,
-  ) async {
-    if (_isOtaModalShowing) return;
+    InforttsCdnOtaEngine cdnEngine, {
+    bool forceReShow = false,
+  }) async {
+    if (_isOtaModalShowing && !forceReShow) return;
     _isOtaModalShowing = true;
 
     bool isDownloading = false;
@@ -1729,233 +1731,236 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         ? manifest.latestBuild
         : (int.tryParse(manifest.version.replaceAll('.', '')) ?? 20205);
 
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogCtx) {
-        return StatefulBuilder(
-          builder: (context, setModalState) {
-            return AlertDialog(
-              backgroundColor: AcousticColors.darkCarbon,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-                side: const BorderSide(color: AcousticColors.sonarCyan, width: 1.5),
-              ),
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AcousticColors.sonarCyan.withOpacity(0.15),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.system_update_rounded,
-                          color: AcousticColors.sonarCyan,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              "New OTA Patch Available",
-                              style: GoogleFonts.outfit(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 17,
-                              ),
-                            ),
-                            Text(
-                              "Infortts CDN Distribution Channel",
-                              style: GoogleFonts.outfit(
-                                color: AcousticColors.sonarCyan,
-                                fontSize: 11,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  const Divider(color: AcousticColors.midGray, height: 1),
-                ],
-              ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+    try {
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogCtx) {
+          return StatefulBuilder(
+            builder: (context, setModalState) {
+              return AlertDialog(
+                backgroundColor: AcousticColors.darkCarbon,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: const BorderSide(color: AcousticColors.sonarCyan, width: 1.5),
+                ),
+                title: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: AcousticColors.panelBg,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AcousticColors.steel.withOpacity(0.3)),
-                      ),
-                      child: Column(
-                        children: [
-                          _buildDetailRow("App Name", widget.appName),
-                          _buildDetailRow("Target Version", "v${manifest.version}"),
-                          _buildDetailRow("Build Code", "$targetBuild"),
-                          _buildDetailRow("Patch Number", "#${manifest.latestPatch}"),
-                          if (manifest.updatedAt.isNotEmpty)
-                            _buildDetailRow("Published", manifest.updatedAt),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      "Patch Details & Release Notes:",
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    if (manifest.releaseNotes.isNotEmpty)
-                      ...manifest.releaseNotes.map(
-                        (note) => Padding(
-                          padding: const EdgeInsets.only(bottom: 6),
-                          child: Row(
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: AcousticColors.sonarCyan.withOpacity(0.15),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.system_update_rounded,
+                            color: AcousticColors.sonarCyan,
+                            size: 24,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.check_circle_outline,
-                                  color: AcousticColors.sonarCyan, size: 16),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  note,
-                                  style: GoogleFonts.outfit(
-                                    color: AcousticColors.titanium,
-                                    fontSize: 12,
-                                    height: 1.3,
-                                  ),
+                              Text(
+                                "New OTA Patch Available",
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 17,
+                                ),
+                              ),
+                              Text(
+                                "Infortts CDN Distribution Channel",
+                                style: GoogleFonts.outfit(
+                                  color: AcousticColors.sonarCyan,
+                                  fontSize: 11,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      )
-                    else
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 6),
-                        child: Text(
-                          "• Maintenance patch with performance improvements and bug fixes.",
-                          style: GoogleFonts.outfit(
-                            color: AcousticColors.titanium,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    if (isDownloading) ...[
-                      const SizedBox(height: 16),
-                      const LinearProgressIndicator(
-                        backgroundColor: AcousticColors.panelBg,
-                        color: AcousticColors.sonarCyan,
-                      ),
-                      const SizedBox(height: 8),
-                      Center(
-                        child: Text(
-                          statusMessage.isNotEmpty
-                              ? statusMessage
-                              : "Downloading patch #${manifest.latestPatch}...",
-                          style: GoogleFonts.outfit(
-                            color: AcousticColors.sonarCyan,
-                            fontSize: 11,
-                          ),
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    const Divider(color: AcousticColors.midGray, height: 1),
                   ],
                 ),
-              ),
-              actions: [
-                if (!isDownloading) ...[
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(dialogCtx).pop();
-                    },
-                    child: Text(
-                      "Later",
-                      style: GoogleFonts.outfit(color: AcousticColors.steel),
-                    ),
-                  ),
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AcousticColors.sonarCyan,
-                      foregroundColor: AcousticColors.black,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                content: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AcousticColors.panelBg,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: AcousticColors.steel.withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          children: [
+                            _buildDetailRow("App Name", widget.appName),
+                            _buildDetailRow("Target Version", "v${manifest.version}"),
+                            _buildDetailRow("Build Code", "$targetBuild"),
+                            _buildDetailRow("Patch Number", "#${manifest.latestPatch}"),
+                            if (manifest.updatedAt.isNotEmpty)
+                              _buildDetailRow("Published", manifest.updatedAt),
+                          ],
+                        ),
                       ),
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    ),
-                    icon: const Icon(Icons.download_rounded, size: 18),
-                    label: Text(
-                      "Download & Install",
-                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
-                    ),
-                    onPressed: () async {
-                      setModalState(() {
-                        isDownloading = true;
-                        statusMessage = "Downloading & applying patch #${manifest.latestPatch}...";
-                      });
-
-                      final success = await cdnEngine.downloadAndApplyPatch(
-                        manifest,
-                        onStatusChanged: (status, patchNum) {
-                          if (status == InforttsCdnOtaStatus.installed) {
-                            setModalState(() {
-                              statusMessage = "Patch #${manifest.latestPatch} installed successfully!";
-                            });
-                          }
-                        },
-                      );
-
-                      if (context.mounted) {
-                        Navigator.of(dialogCtx).pop();
-                        if (success) {
-                          final bump = InforttsVersionHelper.calculateBump(
-                            baseVersion: cdnEngine.baseAppVersion,
-                            baseBuild: 20200,
-                            patchNumber: manifest.latestPatch,
-                          );
-                          setState(() {
-                            _currentVersion = bump.version;
-                            _currentBuildNumber = bump.buildNumber.toString();
-                            _shorebirdPatchText = bump.displayString;
-                          });
-                          _showRestartDialog(context);
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              backgroundColor: AcousticColors.darkCarbon,
-                              content: Text(
-                                "Failed to download OTA patch. Please try again.",
-                                style: GoogleFonts.outfit(color: Colors.redAccent),
-                              ),
+                      const SizedBox(height: 16),
+                      Text(
+                        "Patch Details & Release Notes:",
+                        style: GoogleFonts.outfit(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (manifest.releaseNotes.isNotEmpty)
+                        ...manifest.releaseNotes.map(
+                          (note) => Padding(
+                            padding: const EdgeInsets.only(bottom: 6),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.check_circle_outline,
+                                    color: AcousticColors.sonarCyan, size: 16),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    note,
+                                    style: GoogleFonts.outfit(
+                                      color: AcousticColors.titanium,
+                                      fontSize: 12,
+                                      height: 1.3,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          );
-                        }
-                      }
-                    },
+                          ),
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: Text(
+                            "• Maintenance patch with performance improvements and bug fixes.",
+                            style: GoogleFonts.outfit(
+                              color: AcousticColors.titanium,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
+                      if (isDownloading) ...[
+                        const SizedBox(height: 16),
+                        const LinearProgressIndicator(
+                          backgroundColor: AcousticColors.panelBg,
+                          color: AcousticColors.sonarCyan,
+                        ),
+                        const SizedBox(height: 8),
+                        Center(
+                          child: Text(
+                            statusMessage.isNotEmpty
+                                ? statusMessage
+                                : "Downloading patch #${manifest.latestPatch}...",
+                            style: GoogleFonts.outfit(
+                              color: AcousticColors.sonarCyan,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
-                ],
-              ],
-            );
-          },
-        );
-      },
-    );
+                ),
+                actions: [
+                  if (!isDownloading) ...[
+                    TextButton(
+                      onPressed: () {
+                        _dismissedPatchNumber = manifest.latestPatch;
+                        Navigator.of(dialogCtx).pop();
+                      },
+                      child: Text(
+                        "Later",
+                        style: GoogleFonts.outfit(color: AcousticColors.steel),
+                      ),
+                    ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AcousticColors.sonarCyan,
+                        foregroundColor: AcousticColors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      ),
+                      icon: const Icon(Icons.download_rounded, size: 18),
+                      label: Text(
+                        "Download & Install",
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                      ),
+                      onPressed: () async {
+                        setModalState(() {
+                          isDownloading = true;
+                          statusMessage = "Downloading & applying patch #${manifest.latestPatch}...";
+                        });
 
-    _isOtaModalShowing = false;
+                        final success = await cdnEngine.downloadAndApplyPatch(
+                          manifest,
+                          onStatusChanged: (status, patchNum) {
+                            if (status == InforttsCdnOtaStatus.installed) {
+                              setModalState(() {
+                                statusMessage = "Patch #${manifest.latestPatch} installed successfully!";
+                              });
+                            }
+                          },
+                        );
+
+                        if (context.mounted) {
+                          Navigator.of(dialogCtx).pop();
+                          if (success) {
+                            final bump = InforttsVersionHelper.calculateBump(
+                              baseVersion: cdnEngine.baseAppVersion,
+                              baseBuild: 20200,
+                              patchNumber: manifest.latestPatch,
+                            );
+                            setState(() {
+                              _currentVersion = bump.version;
+                              _currentBuildNumber = bump.buildNumber.toString();
+                              _shorebirdPatchText = bump.displayString;
+                            });
+                            _showRestartDialog(context);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                backgroundColor: AcousticColors.darkCarbon,
+                                content: Text(
+                                  "Failed to download OTA patch. Please try again.",
+                                  style: GoogleFonts.outfit(color: Colors.redAccent),
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  ],
+                ],
+              );
+            },
+          );
+        },
+      );
+    } finally {
+      _isOtaModalShowing = false;
+    }
   }
 
   Future<void> _handleShorebirdCheck(BuildContext context) async {
@@ -1991,8 +1996,8 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       messenger.clearSnackBars();
 
       if (manifest != null && manifest.latestPatch > currentLocalPatch) {
-        if (mounted && !_isOtaModalShowing) {
-          _showNewPatchAvailableModal(context, manifest, cdnEngine);
+        if (mounted) {
+          _showNewPatchAvailableModal(context, manifest, cdnEngine, forceReShow: true);
         }
       } else {
         messenger.showSnackBar(
