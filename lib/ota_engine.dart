@@ -73,11 +73,11 @@ class InforttsDirectOtaEngine {
   final ValueNotifier<DirectOtaInfo> otaNotifier = ValueNotifier<DirectOtaInfo>(
     DirectOtaInfo(
       isUpdateAvailable: false,
-      currentVersion: "2.1.0",
-      currentBuild: 206,
-      latestVersion: "2.1.0",
-      latestBuild: 206,
-      minRequiredBuild: 200,
+      currentVersion: "2.02.00",
+      currentBuild: 222,
+      latestVersion: "2.02.02",
+      latestBuild: 224,
+      minRequiredBuild: 220,
       downloadUrl: "",
       releaseNotes: const [],
       isMandatory: false,
@@ -88,8 +88,8 @@ class InforttsDirectOtaEngine {
 
   /// Check server for live OTA updates
   Future<DirectOtaInfo> checkUpdate({int? overrideCurrentBuild}) async {
-    int currentBuild = overrideCurrentBuild ?? 206;
-    String currentVersion = "2.1.0";
+    int currentBuild = overrideCurrentBuild ?? 222;
+    String currentVersion = "2.02.00";
 
     try {
       final info = await PackageInfo.fromPlatform();
