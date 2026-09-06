@@ -1543,7 +1543,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     const SizedBox(height: 6),
                     _buildProfileRow("Engine", "Flutter 3.29.0 / Dart 3.7.0"),
                     const SizedBox(height: 6),
-                    _buildProfileRow("Track", "Internal Track (Internal Testing)"),
+                    _buildProfileRow("Track", "Internal Track (CDN Distribution)"),
                     const SizedBox(height: 6),
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 3),
