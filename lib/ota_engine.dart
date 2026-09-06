@@ -103,47 +103,73 @@ class InforttsDirectOtaEngine {
 
     _updateNotifierStatus(DirectOtaStatus.checking, currentVersion: currentVersion, currentBuild: currentBuild);
 
-    try {
-      final res = await http.get(Uri.parse(_endpointUrl)).timeout(const Duration(seconds: 4));
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body) as Map<String, dynamic>;
-        final latestVersion = data["latest_version"]?.toString() ?? currentVersion;
-        final latestBuild = (data["latest_build"] as num?)?.toInt() ?? currentBuild;
-        final minRequiredBuild = (data["min_required_build"] as num?)?.toInt() ?? 200;
-        final downloadUrl = data["download_url"]?.toString() ?? "";
-        final isMandatory = (data["is_mandatory"] == true) || (currentBuild < minRequiredBuild);
+      try {
+        final res = await http.get(Uri.parse(_endpointUrl)).timeout(const Duration(seconds: 3));
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body) as Map<String, dynamic>;
+          final latestVersion = data["latest_version"]?.toString() ?? currentVersion;
+          final latestBuild = (data["latest_build"] as num?)?.toInt() ?? currentBuild;
+          final minRequiredBuild = (data["min_required_build"] as num?)?.toInt() ?? 200;
+          final downloadUrl = data["download_url"]?.toString() ?? "";
+          final isMandatory = (data["is_mandatory"] == true) || (currentBuild < minRequiredBuild);
 
-        final rawNotes = data["release_notes"];
-        List<String> releaseNotes = [];
-        if (rawNotes is List) {
-          releaseNotes = rawNotes.map((e) => e.toString()).toList();
-        } else if (rawNotes is String) {
-          releaseNotes = [rawNotes];
+          final rawNotes = data["release_notes"];
+          List<String> releaseNotes = [];
+          if (rawNotes is List) {
+            releaseNotes = rawNotes.map((e) => e.toString()).toList();
+          } else if (rawNotes is String) {
+            releaseNotes = [rawNotes];
+          }
+
+          final isUpdateAvailable = latestBuild > currentBuild;
+          final status = isUpdateAvailable ? DirectOtaStatus.updateAvailable : DirectOtaStatus.upToDate;
+
+          final otaInfo = DirectOtaInfo(
+            isUpdateAvailable: isUpdateAvailable,
+            currentVersion: currentVersion,
+            currentBuild: currentBuild,
+            latestVersion: latestVersion,
+            latestBuild: latestBuild,
+            minRequiredBuild: minRequiredBuild,
+            downloadUrl: downloadUrl,
+            releaseNotes: releaseNotes,
+            isMandatory: isMandatory,
+            status: status,
+            checkedAt: DateTime.now(),
+          );
+
+          otaNotifier.value = otaInfo;
+          return otaInfo;
         }
+      } catch (_) {}
 
-        final isUpdateAvailable = latestBuild > currentBuild;
-        final status = isUpdateAvailable ? DirectOtaStatus.updateAvailable : DirectOtaStatus.upToDate;
-
-        final otaInfo = DirectOtaInfo(
-          isUpdateAvailable: isUpdateAvailable,
-          currentVersion: currentVersion,
-          currentBuild: currentBuild,
-          latestVersion: latestVersion,
-          latestBuild: latestBuild,
-          minRequiredBuild: minRequiredBuild,
-          downloadUrl: downloadUrl,
-          releaseNotes: releaseNotes,
-          isMandatory: isMandatory,
-          status: status,
-          checkedAt: DateTime.now(),
-        );
-
-        otaNotifier.value = otaInfo;
-        return otaInfo;
+      // Fallback: Query primary Cloudflare CDN manifest
+      try {
+        final cdnUrl = "https://infortts.site/patches/mitochondria/v$currentVersion/manifest.json";
+        final res = await http.get(Uri.parse(cdnUrl)).timeout(const Duration(seconds: 3));
+        if (res.statusCode == 200) {
+          final data = jsonDecode(res.body) as Map<String, dynamic>;
+          final patchNum = (data["latestPatch"] as num?)?.toInt() ?? 0;
+          final isUpdateAvailable = patchNum > 0;
+          final otaInfo = DirectOtaInfo(
+            isUpdateAvailable: isUpdateAvailable,
+            currentVersion: currentVersion,
+            currentBuild: currentBuild,
+            latestVersion: currentVersion,
+            latestBuild: currentBuild + patchNum,
+            minRequiredBuild: 200,
+            downloadUrl: data["patchUrl"]?.toString() ?? "",
+            releaseNotes: ["Infortts CDN OTA Patch #$patchNum"],
+            isMandatory: false,
+            status: isUpdateAvailable ? DirectOtaStatus.updateAvailable : DirectOtaStatus.upToDate,
+            checkedAt: DateTime.now(),
+          );
+          otaNotifier.value = otaInfo;
+          return otaInfo;
+        }
+      } catch (e) {
+        if (kDebugMode) print("[InforttsDirectOtaEngine] CDN fallback exception: $e");
       }
-    } catch (e) {
-      if (kDebugMode) print("[InforttsDirectOtaEngine] OTA check exception: $e");
-    }
 
     final fallbackInfo = DirectOtaInfo(
       isUpdateAvailable: false,
