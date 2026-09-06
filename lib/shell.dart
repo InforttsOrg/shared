@@ -655,13 +655,22 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   }
 
   Widget _buildFlashingOtaIcon() {
-    if (!_isCheckingOtaCron) return const SizedBox.shrink();
+    final bool isActive = _otaCronTimer != null || _isCheckingOtaCron;
+    if (!isActive) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0),
-      child: const Icon(Icons.sensors_rounded, size: 14, color: AcousticColors.sonarCyan)
+      child: Icon(
+        Icons.sensors_rounded,
+        size: 14,
+        color: _isCheckingOtaCron ? AcousticColors.sonarCyan : AcousticColors.sonarCyan.withOpacity(0.85),
+      )
           .animate(onPlay: (controller) => controller.repeat(reverse: true))
           .fadeIn(duration: 200.ms)
-          .scaleXY(begin: 0.7, end: 1.25, duration: 350.ms),
+          .scaleXY(
+            begin: 0.75,
+            end: _isCheckingOtaCron ? 1.35 : 1.15,
+            duration: _isCheckingOtaCron ? 250.ms : 600.ms,
+          ),
     );
   }
 
@@ -736,12 +745,6 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         _activeTab = inforttsTabController.value;
       });
     }
-  }
-
-  @override
-  void dispose() {
-    inforttsTabController.removeListener(_onTabChangedByController);
-    super.dispose();
   }
 
   void _handleMockLogin(String email, String password) {
@@ -1695,6 +1698,19 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     );
   }
 
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: GoogleFonts.outfit(color: AcousticColors.steel, fontSize: 12)),
+          Text(value, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showNewPatchAvailableModal(
     BuildContext context,
     InforttsOtaManifest manifest,
@@ -1765,7 +1781,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Divider(color: AcousticColors.panelBorder, height: 1),
+                  const Divider(color: AcousticColors.midGray, height: 1),
                 ],
               ),
               content: SingleChildScrollView(
