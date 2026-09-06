@@ -151,9 +151,9 @@ class InforttsCdnOtaEngine {
 
       final candidatePatchUrls = [
         if (manifest.patchUrl.isNotEmpty) manifest.patchUrl,
-        'https://update.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.so',
-        'https://update.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
         'https://forensics.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
+        'https://forensics.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.so',
+        'https://infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
         'https://infortts.site/api/ota/patch?app=$appName&version=$baseAppVersion&patch=${manifest.latestPatch}',
         'https://infortts.site/ota_${appName}_v${baseAppVersion}_patch_${manifest.latestPatch}.bin',
         '$cdnBaseUrl/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
