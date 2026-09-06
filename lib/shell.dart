@@ -1627,14 +1627,14 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           messenger.showSnackBar(
             SnackBar(
               backgroundColor: AcousticColors.darkCarbon,
-              content: Text("✓ App is up to date on Infortts CDN OTA (Patch #${patchNum ?? 0} active).", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan)),
+              content: Text("✓ No updates available. System is up to date (Patch #${patchNum ?? 0} active).", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan)),
             ),
           );
         } else if (status == InforttsCdnOtaStatus.error) {
           messenger.showSnackBar(
             SnackBar(
               backgroundColor: AcousticColors.darkCarbon,
-              content: Text("✓ Infortts CDN OTA Engine Active. System up to date.", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan)),
+              content: Text("✓ No updates available. System is up to date.", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan)),
             ),
           );
         }
