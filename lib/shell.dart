@@ -655,22 +655,25 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   }
 
   Widget _buildFlashingOtaIcon() {
-    final bool isActive = _otaCronTimer != null || _isCheckingOtaCron;
-    if (!isActive) return const SizedBox.shrink();
+    final icon = const Icon(
+      Icons.sensors_rounded,
+      size: 14,
+      color: AcousticColors.sonarCyan,
+    );
+
+    if (_isCheckingOtaCron) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4.0),
+        child: icon
+            .animate(onPlay: (controller) => controller.repeat(reverse: true))
+            .fadeIn(duration: 150.ms)
+            .scaleXY(begin: 0.7, end: 1.35, duration: 250.ms),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4.0),
-      child: Icon(
-        Icons.sensors_rounded,
-        size: 14,
-        color: _isCheckingOtaCron ? AcousticColors.sonarCyan : AcousticColors.sonarCyan.withOpacity(0.85),
-      )
-          .animate(onPlay: (controller) => controller.repeat(reverse: true))
-          .fadeIn(duration: 200.ms)
-          .scaleXY(
-            begin: 0.75,
-            end: _isCheckingOtaCron ? 1.35 : 1.15,
-            duration: _isCheckingOtaCron ? 250.ms : 600.ms,
-          ),
+      child: icon,
     );
   }
 
@@ -2021,7 +2024,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               child: CircularProgressIndicator(strokeWidth: 2.0, valueColor: AlwaysStoppedAnimation<Color>(AcousticColors.sonarCyan)),
             ),
             const SizedBox(width: 10),
-            Text("Downloading & installing Shorebird OTA patch...", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan, fontSize: 12)),
+            Text("Downloading & installing Infortts OTA patch...", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan, fontSize: 12)),
           ],
         ),
       ),
@@ -2057,7 +2060,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           ],
         ),
         content: Text(
-          "The latest Shorebird OTA patch has been downloaded and installed.\n\nRestart the app now to activate all new features?",
+          "The latest Infortts OTA patch has been downloaded and installed.\n\nRestart the app now to activate all new features?",
           style: GoogleFonts.outfit(color: AcousticColors.titanium, fontSize: 13),
         ),
         actions: [
