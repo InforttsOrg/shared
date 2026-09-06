@@ -1517,7 +1517,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     const SizedBox(height: 6),
                     _buildProfileRow("FORENSICS API", const String.fromEnvironment('FORENSICS_API_URL', defaultValue: 'https://forensics.infortts.site/api/v1')),
                     const SizedBox(height: 6),
-                    _buildProfileRow("OTA CDN", const String.fromEnvironment('OTA_CDN_URL', defaultValue: 'https://infortts.site/patches')),
+                    _buildProfileRow("OTA CDN", const String.fromEnvironment('OTA_CDN_URL', defaultValue: 'https://update.infortts.site/patches')),
                   ],
                 ),
               ),

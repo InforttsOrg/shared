@@ -63,7 +63,7 @@ cat <<EOF > "$MANIFEST_DEST_FILE"
   "version": "$VERSION",
   "latestPatch": $PATCH_NUM,
   "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "patchUrl": "https://infortts.site/patches/$APP/v$VERSION/patch_$PATCH_NUM.bin"
+  "patchUrl": "https://update.infortts.site/patches/$APP/v$VERSION/patch_$PATCH_NUM.bin"
 }
 EOF
 
@@ -73,7 +73,7 @@ cat <<EOF > "$FLAT_MANIFEST_FILE"
   "version": "$VERSION",
   "latestPatch": $PATCH_NUM,
   "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "patchUrl": "https://infortts.site/patches/${APP}_v${VERSION}_patch_${PATCH_NUM}.bin"
+  "patchUrl": "https://update.infortts.site/patches/${APP}_v${VERSION}_patch_${PATCH_NUM}.bin"
 }
 EOF
 
@@ -83,7 +83,7 @@ cat <<EOF > "$ROOT_MANIFEST_FILE"
   "version": "$VERSION",
   "latestPatch": $PATCH_NUM,
   "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "patchUrl": "https://infortts.site/ota_${APP}_v${VERSION}_patch_${PATCH_NUM}.bin"
+  "patchUrl": "https://update.infortts.site/ota_${APP}_v${VERSION}_patch_${PATCH_NUM}.bin"
 }
 EOF
 
@@ -94,5 +94,5 @@ git commit -m "ota: publish $APP v$VERSION patch #$PATCH_NUM to Cloudflare CDN (
 git push origin main && git push origin main:master
 
 echo "✅ OTA Patch #$PATCH_NUM for $APP published to Cloudflare CDN!"
-echo "   Public Manifest URL: https://infortts.site/patches/$APP/v$VERSION/manifest.json"
-echo "   Public Patch Binary: https://infortts.site/patches/$APP/v$VERSION/patch_$PATCH_NUM.bin"
+echo "   Public Manifest URL: https://update.infortts.site/patches/$APP/v$VERSION/manifest.json"
+echo "   Public Patch Binary: https://update.infortts.site/patches/$APP/v$VERSION/patch_$PATCH_NUM.bin"

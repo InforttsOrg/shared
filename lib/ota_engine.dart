@@ -145,7 +145,7 @@ class InforttsDirectOtaEngine {
 
       // Fallback: Query primary Cloudflare CDN manifest
       try {
-        final cdnUrl = "https://infortts.site/patches/mitochondria/v$currentVersion/manifest.json";
+        final cdnUrl = "https://update.infortts.site/patches/mitochondria/v$currentVersion/manifest.json";
         final res = await http.get(Uri.parse(cdnUrl)).timeout(const Duration(seconds: 3));
         if (res.statusCode == 200) {
           final data = jsonDecode(res.body) as Map<String, dynamic>;
