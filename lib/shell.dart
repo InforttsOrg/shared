@@ -1518,13 +1518,13 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     const SizedBox(height: 6),
                     _buildProfileRow("Version", _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.02.00')),
                     const SizedBox(height: 6),
-                    _buildProfileRow("Build", _currentBuildNumber.isNotEmpty ? "Build $_currentBuildNumber" : "Production"),
+                    _buildProfileRow("Build", _currentBuildNumber.isNotEmpty ? "Build $_currentBuildNumber" : "Build 20200"),
                     const SizedBox(height: 6),
                     _buildProfileRow("Engine", "Flutter 3.29.0 / Dart 3.7.0"),
                     const SizedBox(height: 6),
                     _buildProfileRow("Track", "Internal Track (Internal Testing)"),
                     const SizedBox(height: 6),
-                    _buildProfileRow("Shorebird OTA", _shorebirdPatchText),
+                    _buildProfileRow("Infortts OTA", _shorebirdPatchText),
                     const SizedBox(height: 12),
                     Row(
                       children: [
@@ -1568,40 +1568,66 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   }
 
   Future<void> _showInstalledPatchDetailsModal(BuildContext context) async {
-    final updater = ShorebirdUpdater();
-    int? patchNum;
-    if (updater.isAvailable) {
-      final currentPatch = await updater.readCurrentPatch();
-      patchNum = currentPatch?.number;
-    }
-    final patchDisplay = patchNum != null && patchNum > 0 ? "Patch #$patchNum" : "Patch #5 Active";
+    final cdnEngine = InforttsCdnOtaEngine(
+      appName: widget.appName.toLowerCase(),
+      appVersion: _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.02.00'),
+    );
+    final patchNum = await cdnEngine.getLocalPatchNumber();
+    final manifest = await cdnEngine.fetchManifest();
+
+    final patchDisplay = patchNum > 0 ? "Infortts CDN OTA Patch #$patchNum Active" : "Base Release (Patch #0)";
+    final releaseNotes = manifest?.releaseNotes ?? [
+      "✓ Epoch 2 Custom CDN OTA Active",
+      "✓ Real-Time Automated Background Update Cron",
+      "✓ Zero-Shorebird Sovereign Distribution Engine",
+    ];
 
     if (!context.mounted) return;
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: AcousticColors.darkCarbon,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: AcousticColors.sonarCyan, width: 1.2)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: AcousticColors.sonarCyan, width: 1.2)),
         title: Row(
           children: [
             const Icon(Icons.system_update_rounded, color: AcousticColors.sonarCyan, size: 22),
             const SizedBox(width: 8),
-            Text("Installed Patch Details", style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            Text("Active Version & Patch Details", style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildDetailTile("Base Version", "$_currentVersion+$_currentBuildNumber"),
-            _buildDetailTile("Release Track", "Internal Track (Internal Testing)"),
-            _buildDetailTile("Active OTA Patch", patchDisplay),
-            _buildDetailTile("Build Target", "Android (arm32, arm64, x86_64)"),
-            const SizedBox(height: 10),
-            Text("Patch Highlights:", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan, fontWeight: FontWeight.bold, fontSize: 12)),
-            const SizedBox(height: 4),
-            Text("• Pure Backend Price Calculation Engine\n• Dynamic MT5 vs Binance Venue Price Isolation\n• Market-Hours Signal Guard (XAUUSD / Forex)\n• Locked Midpoint & Bid/Ask Synchronization", style: GoogleFonts.outfit(color: AcousticColors.titanium, fontSize: 11, height: 1.4)),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildDetailTile("App Name", widget.appName),
+              _buildDetailTile("Version Name", _currentVersion.isNotEmpty ? _currentVersion : "2.02.05"),
+              _buildDetailTile("Build Code", _currentBuildNumber.isNotEmpty ? _currentBuildNumber : "20205"),
+              _buildDetailTile("Release Track", "Internal Track (CDN Distribution)"),
+              _buildDetailTile("Active Patch", patchDisplay),
+              const SizedBox(height: 12),
+              Text("Patch Highlights & Release Notes:", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan, fontWeight: FontWeight.bold, fontSize: 12)),
+              const SizedBox(height: 6),
+              ...releaseNotes.map(
+                (note) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.check_circle_outline, color: AcousticColors.sonarCyan, size: 14),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          note,
+                          style: GoogleFonts.outfit(color: AcousticColors.titanium, fontSize: 11, height: 1.3),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           ElevatedButton(
