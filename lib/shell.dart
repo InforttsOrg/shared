@@ -553,15 +553,15 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   late final GlycocalyxAuth _authClient;
   String _currentVersion = "";
   String _currentBuildNumber = "";
-  String _shorebirdPatchText = "v2.1.0+203 (Shorebird Engine Active [Internal Track])";
+  String _shorebirdPatchText = "v2.02.00+20200 (Infortts CDN OTA Engine Active [Internal Track])";
 
   late final List<InforttsTab> _tabs;
 
   @override
   void initState() {
     super.initState();
-    _currentVersion = widget.appVersion ?? "2.1.0";
-    _currentBuildNumber = "207";
+    _currentVersion = widget.appVersion ?? "2.02.00";
+    _currentBuildNumber = "20200";
     _initPackageInfo();
     _authClient = widget.auth ?? GlycocalyxAuth();
     inforttsTabController.value = 0;
@@ -588,8 +588,8 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   Future<void> _initPackageInfo() async {
     try {
       final info = await PackageInfo.fromPlatform();
-      final baseVersion = info.version.isNotEmpty ? info.version : "2.2.0";
-      final baseBuild = info.buildNumber.isNotEmpty ? (int.tryParse(info.buildNumber) ?? 220) : 220;
+      final baseVersion = info.version.isNotEmpty ? info.version : "2.02.00";
+      final baseBuild = info.buildNumber.isNotEmpty ? (int.tryParse(info.buildNumber) ?? 20200) : 20200;
 
       final cdnEngine = InforttsCdnOtaEngine(
         appName: widget.appName.toLowerCase(),
@@ -1050,7 +1050,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    "v${_currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.0.0')}${_currentBuildNumber.isNotEmpty ? '+$_currentBuildNumber' : '+200'}",
+                    "v${_currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.02.00')}${_currentBuildNumber.isNotEmpty ? '+$_currentBuildNumber' : '+200'}",
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 9,
                       color: AcousticColors.sonarCyan,
@@ -1396,7 +1396,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
-                      "V${_currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '1.0.0')}",
+                      "V${_currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.02.00')}",
                       style: GoogleFonts.jetBrainsMono(fontSize: 9, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan),
                     ),
                   ),
@@ -1479,7 +1479,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                   children: [
                     _buildProfileRow("App", widget.appName),
                     const SizedBox(height: 6),
-                    _buildProfileRow("Version", _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '1.0.0')),
+                    _buildProfileRow("Version", _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.02.00')),
                     const SizedBox(height: 6),
                     _buildProfileRow("Build", _currentBuildNumber.isNotEmpty ? "Build $_currentBuildNumber" : "Production"),
                     const SizedBox(height: 6),
@@ -1887,7 +1887,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text("Version / Build:", style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray)),
-                            Text(_currentVersion.isNotEmpty ? "v$_currentVersion${_currentBuildNumber.isNotEmpty ? ' (+$_currentBuildNumber)' : ''}" : "v${widget.appVersion ?? '1.0.0'}", style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.sonarCyan)),
+                            Text(_currentVersion.isNotEmpty ? "v$_currentVersion${_currentBuildNumber.isNotEmpty ? ' (+$_currentBuildNumber)' : ''}" : "v${widget.appVersion ?? '2.02.00'}", style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.sonarCyan)),
                           ],
                         ),
                       ],
@@ -1962,7 +1962,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Text("Version / Build:", style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray)),
-                                Text(_currentVersion.isNotEmpty ? "v$_currentVersion${_currentBuildNumber.isNotEmpty ? ' (+$_currentBuildNumber)' : ''}" : "v${widget.appVersion ?? '1.0.0'}", style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.sonarCyan)),
+                                Text(_currentVersion.isNotEmpty ? "v$_currentVersion${_currentBuildNumber.isNotEmpty ? ' (+$_currentBuildNumber)' : ''}" : "v${widget.appVersion ?? '2.02.00'}", style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.sonarCyan)),
                               ],
                             ),
                           ],
