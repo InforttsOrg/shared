@@ -10,15 +10,19 @@ class InforttsOtaManifest {
   final String app;
   final String version;
   final int latestPatch;
+  final int latestBuild;
   final String updatedAt;
   final String patchUrl;
+  final List<String> releaseNotes;
 
   InforttsOtaManifest({
     required this.app,
     required this.version,
     required this.latestPatch,
+    required this.latestBuild,
     required this.updatedAt,
     required this.patchUrl,
+    required this.releaseNotes,
   });
 
   factory InforttsOtaManifest.fromJson(Map<String, dynamic> json) {
@@ -33,16 +37,37 @@ class InforttsOtaManifest {
       }
     }
 
-    final rawUrl = json['patchUrl'] as String? ?? json['download_url'] as String? ?? '';
     final versionStr = json['version'] as String? ?? json['latest_version'] as String? ?? '';
+
+    int buildNum = 0;
+    if (json.containsKey('latestBuild')) {
+      buildNum = (json['latestBuild'] as num?)?.toInt() ?? 0;
+    } else if (json.containsKey('latest_build')) {
+      buildNum = (json['latest_build'] as num?)?.toInt() ?? 0;
+    }
+    if (buildNum == 0 && versionStr.isNotEmpty) {
+      final clean = versionStr.replaceAll('.', '');
+      buildNum = int.tryParse(clean) ?? 0;
+    }
+
+    final rawUrl = json['patchUrl'] as String? ?? json['download_url'] as String? ?? '';
     final updated = json['updatedAt'] as String? ?? json['published_at'] as String? ?? '';
+
+    List<String> notes = [];
+    if (json['releaseNotes'] != null) {
+      notes = List<String>.from(json['releaseNotes']);
+    } else if (json['release_notes'] != null) {
+      notes = List<String>.from(json['release_notes']);
+    }
 
     return InforttsOtaManifest(
       app: json['app'] as String? ?? '',
       version: versionStr,
       latestPatch: patchNum,
+      latestBuild: buildNum,
       updatedAt: updated,
       patchUrl: rawUrl,
+      releaseNotes: notes,
     );
   }
 
@@ -50,8 +75,10 @@ class InforttsOtaManifest {
         'app': app,
         'version': version,
         'latestPatch': latestPatch,
+        'latestBuild': latestBuild,
         'updatedAt': updatedAt,
         'patchUrl': patchUrl,
+        'releaseNotes': releaseNotes,
       };
 }
 
@@ -114,6 +141,59 @@ class InforttsCdnOtaEngine {
     return null;
   }
 
+  /// Download and apply binary patch for given manifest
+  Future<bool> downloadAndApplyPatch(
+    InforttsOtaManifest manifest, {
+    void Function(InforttsCdnOtaStatus status, int? latestPatch)? onStatusChanged,
+  }) async {
+    try {
+      onStatusChanged?.call(InforttsCdnOtaStatus.downloading, manifest.latestPatch);
+
+      final candidatePatchUrls = [
+        if (manifest.patchUrl.isNotEmpty) manifest.patchUrl,
+        'https://forensics.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
+        'https://infortts.site/api/ota/patch?app=$appName&version=$baseAppVersion&patch=${manifest.latestPatch}',
+        'https://infortts.site/ota_${appName}_v${baseAppVersion}_patch_${manifest.latestPatch}.bin',
+        '$cdnBaseUrl/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
+        '$cdnBaseUrl/${appName}_v${baseAppVersion}_patch_${manifest.latestPatch}.bin',
+      ];
+
+      http.Response? patchResponse;
+      for (final url in candidatePatchUrls) {
+        try {
+          final res = await http.get(Uri.parse(url));
+          if (res.statusCode == 200) {
+            patchResponse = res;
+            break;
+          }
+        } catch (_) {}
+      }
+
+      if (patchResponse != null && patchResponse.statusCode == 200) {
+        final dir = await getApplicationSupportDirectory();
+        final patchDir = Directory('${dir.path}/infortts_ota/$appName/v$baseAppVersion');
+        await patchDir.create(recursive: true);
+
+        final patchFile = File('${patchDir.path}/patch_${manifest.latestPatch}.bin');
+        await patchFile.writeAsBytes(patchResponse.bodyBytes);
+
+        // Update SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setInt('$prefsPatchKeyPrefix${appName}_$baseAppVersion', manifest.latestPatch);
+
+        onStatusChanged?.call(InforttsCdnOtaStatus.installed, manifest.latestPatch);
+        return true;
+      } else {
+        onStatusChanged?.call(InforttsCdnOtaStatus.error, manifest.latestPatch);
+        return false;
+      }
+    } catch (e) {
+      if (kDebugMode) print('[InforttsCdnOtaEngine] Error applying patch: $e');
+      onStatusChanged?.call(InforttsCdnOtaStatus.error, null);
+      return false;
+    }
+  }
+
   /// Full check and optional auto-download of new patch binary
   Future<bool> checkAndApplyUpdate({
     bool autoDownload = true,
@@ -132,46 +212,7 @@ class InforttsCdnOtaEngine {
         onStatusChanged?.call(InforttsCdnOtaStatus.updateAvailable, manifest.latestPatch);
 
         if (autoDownload) {
-          onStatusChanged?.call(InforttsCdnOtaStatus.downloading, manifest.latestPatch);
-
-          final candidatePatchUrls = [
-            if (manifest.patchUrl.isNotEmpty) manifest.patchUrl,
-            'https://forensics.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
-            'https://infortts.site/api/ota/patch?app=$appName&version=$baseAppVersion&patch=${manifest.latestPatch}',
-            'https://infortts.site/ota_${appName}_v${baseAppVersion}_patch_${manifest.latestPatch}.bin',
-            '$cdnBaseUrl/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
-            '$cdnBaseUrl/${appName}_v${baseAppVersion}_patch_${manifest.latestPatch}.bin',
-          ];
-
-          http.Response? patchResponse;
-          for (final url in candidatePatchUrls) {
-            try {
-              final res = await http.get(Uri.parse(url));
-              if (res.statusCode == 200) {
-                patchResponse = res;
-                break;
-              }
-            } catch (_) {}
-          }
-
-          if (patchResponse != null && patchResponse.statusCode == 200) {
-            final dir = await getApplicationSupportDirectory();
-            final patchDir = Directory('${dir.path}/infortts_ota/$appName/v$baseAppVersion');
-            await patchDir.create(recursive: true);
-
-            final patchFile = File('${patchDir.path}/patch_${manifest.latestPatch}.bin');
-            await patchFile.writeAsBytes(patchResponse.bodyBytes);
-
-            // Update SharedPreferences
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setInt('$prefsPatchKeyPrefix${appName}_$baseAppVersion', manifest.latestPatch);
-
-            onStatusChanged?.call(InforttsCdnOtaStatus.installed, manifest.latestPatch);
-            return true;
-          } else {
-            onStatusChanged?.call(InforttsCdnOtaStatus.error, manifest.latestPatch);
-            return false;
-          }
+          return await downloadAndApplyPatch(manifest, onStatusChanged: onStatusChanged);
         }
         return true;
       } else {
