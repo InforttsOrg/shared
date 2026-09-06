@@ -46,8 +46,12 @@ mkdir -p "$PATCH_DEST_DIR"
 PATCH_DEST_FILE="$PATCH_DEST_DIR/patch_$PATCH_NUM.bin"
 MANIFEST_DEST_FILE="$PATCH_DEST_DIR/manifest.json"
 
-echo "📦 Copying OTA Patch binary to Cloudflare Pages static CDN path..."
+FLAT_PATCH_FILE="$WWW_DIR/public/patches/${APP}_v${VERSION}_patch_${PATCH_NUM}.bin"
+FLAT_MANIFEST_FILE="$WWW_DIR/public/patches/${APP}_v${VERSION}_manifest.json"
+
+echo "📦 Copying OTA Patch binary to Cloudflare Pages static CDN paths..."
 cp "$PATCH_FILE" "$PATCH_DEST_FILE"
+cp "$PATCH_FILE" "$FLAT_PATCH_FILE"
 
 cat <<EOF > "$MANIFEST_DEST_FILE"
 {
@@ -59,10 +63,20 @@ cat <<EOF > "$MANIFEST_DEST_FILE"
 }
 EOF
 
+cat <<EOF > "$FLAT_MANIFEST_FILE"
+{
+  "app": "$APP",
+  "version": "$VERSION",
+  "latestPatch": $PATCH_NUM,
+  "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+  "patchUrl": "https://infortts.site/patches/${APP}_v${VERSION}_patch_${PATCH_NUM}.bin"
+}
+EOF
+
 echo "☁️ Triggering Cloudflare Pages auto-deploy via Git push..."
 cd "$WWW_DIR"
 git add public/patches/ wrangler.toml
-git commit -m "ota: publish $APP v$VERSION patch #$PATCH_NUM to Cloudflare CDN" || true
+git commit -m "ota: publish $APP v$VERSION patch #$PATCH_NUM to Cloudflare CDN (flat & nested)" || true
 git push origin main && git push origin main:master
 
 echo "✅ OTA Patch #$PATCH_NUM for $APP published to Cloudflare CDN!"

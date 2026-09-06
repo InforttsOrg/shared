@@ -72,20 +72,25 @@ class InforttsCdnOtaEngine {
     return prefs.getInt('$prefsPatchKeyPrefix${appName}_$appVersion') ?? 0;
   }
 
-  /// Check CDN for available manifest & new patches
+  /// Check CDN for available manifest & new patches with candidate URL fallbacks
   Future<InforttsOtaManifest?> fetchManifest() async {
-    final manifestUrl = '$cdnBaseUrl/$appName/v$appVersion/manifest.json';
-    try {
-      final response = await http.get(Uri.parse(manifestUrl));
-      if (response.statusCode == 200) {
-        final Map<String, dynamic> data = jsonDecode(response.body);
-        return InforttsOtaManifest.fromJson(data);
+    final candidateUrls = [
+      '$cdnBaseUrl/$appName/v$appVersion/manifest.json',
+      '$cdnBaseUrl/${appName}_v${appVersion}_manifest.json',
+    ];
+
+    for (final manifestUrl in candidateUrls) {
+      try {
+        final response = await http.get(Uri.parse(manifestUrl));
+        if (response.statusCode == 200) {
+          final Map<String, dynamic> data = jsonDecode(response.body);
+          return InforttsOtaManifest.fromJson(data);
+        }
+      } catch (e) {
+        if (kDebugMode) print('[InforttsCdnOtaEngine] Failed manifest candidate ($manifestUrl): $e');
       }
-      return null;
-    } catch (e) {
-      if (kDebugMode) print('[InforttsCdnOtaEngine] Error fetching manifest: $e');
-      return null;
     }
+    return null;
   }
 
   /// Full check and optional auto-download of new patch binary
@@ -105,11 +110,27 @@ class InforttsCdnOtaEngine {
       if (manifest.latestPatch > currentLocalPatch) {
         onStatusChanged?.call(InforttsCdnOtaStatus.updateAvailable, manifest.latestPatch);
 
-        if (autoDownload && manifest.patchUrl.isNotEmpty) {
+        if (autoDownload) {
           onStatusChanged?.call(InforttsCdnOtaStatus.downloading, manifest.latestPatch);
 
-          final patchResponse = await http.get(Uri.parse(manifest.patchUrl));
-          if (patchResponse.statusCode == 200) {
+          final candidatePatchUrls = [
+            if (manifest.patchUrl.isNotEmpty) manifest.patchUrl,
+            '$cdnBaseUrl/$appName/v$appVersion/patch_${manifest.latestPatch}.bin',
+            '$cdnBaseUrl/${appName}_v${appVersion}_patch_${manifest.latestPatch}.bin',
+          ];
+
+          http.Response? patchResponse;
+          for (final url in candidatePatchUrls) {
+            try {
+              final res = await http.get(Uri.parse(url));
+              if (res.statusCode == 200) {
+                patchResponse = res;
+                break;
+              }
+            } catch (_) {}
+          }
+
+          if (patchResponse != null && patchResponse.statusCode == 200) {
             final dir = await getApplicationSupportDirectory();
             final patchDir = Directory('${dir.path}/infortts_ota/$appName/v$appVersion');
             await patchDir.create(recursive: true);
