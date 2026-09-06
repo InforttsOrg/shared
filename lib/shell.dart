@@ -554,8 +554,17 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   String _currentVersion = "";
   String _currentBuildNumber = "";
   String _shorebirdPatchText = "v2.02.00+20200 (Infortts CDN OTA Engine Active [Internal Track])";
+  Timer? _otaCronTimer;
+  bool _isCheckingOtaCron = false;
 
   late final List<InforttsTab> _tabs;
+
+  @override
+  void dispose() {
+    _otaCronTimer?.cancel();
+    inforttsTabController.removeListener(_onTabChangedByController);
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -609,8 +618,53 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           _shorebirdPatchText = bump.displayString;
         });
       }
+      _startOtaCronTimer();
       InforttsDirectOtaEngine().checkUpdate();
     } catch (_) {}
+  }
+
+  void _startOtaCronTimer() {
+    _otaCronTimer?.cancel();
+    _otaCronTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      if (!mounted || _isCheckingOtaCron) return;
+      _isCheckingOtaCron = true;
+      try {
+        final cdnEngine = InforttsCdnOtaEngine(
+          appName: widget.appName.toLowerCase(),
+          appVersion: _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.02.00'),
+        );
+        final manifest = await cdnEngine.fetchManifest();
+        if (manifest == null) return;
+
+        final currentLocalPatch = await cdnEngine.getLocalPatchNumber();
+        if (manifest.latestPatch > currentLocalPatch) {
+          final applied = await cdnEngine.checkAndApplyUpdate(
+            autoDownload: true,
+            onStatusChanged: (status, patchNum) {
+              if (status == InforttsCdnOtaStatus.installed && mounted) {
+                _showRestartDialog(context);
+              }
+            },
+          );
+
+          if (applied && mounted) {
+            final bump = InforttsVersionHelper.calculateBump(
+              baseVersion: cdnEngine.baseAppVersion,
+              baseBuild: 20200,
+              patchNumber: manifest.latestPatch,
+            );
+            setState(() {
+              _currentVersion = bump.version;
+              _currentBuildNumber = bump.buildNumber.toString();
+              _shorebirdPatchText = bump.displayString;
+            });
+          }
+        }
+      } catch (_) {
+      } finally {
+        _isCheckingOtaCron = false;
+      }
+    });
   }
 
   void _restoreSession() async {
