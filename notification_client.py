@@ -48,10 +48,17 @@ def send_push_notification(title: str, body: str, topic: str = "trades", channel
             pass
         return {"status": "fallback_sent", "error": str(e)}
 
+def broadcast_all_apps_notification(title: str, body: str, data=None):
+    """Dispatches high-priority push notifications across all 28 Infortts ecosystem apps."""
+    topics = ["mitochondria", "meeseeks", "care4u", "yorgia", "artits", "ikaria", "all_apps"]
+    results = {}
+    for t in topics:
+        results[t] = send_push_notification(title=title, body=body, topic=t, data=data)
+    return results
+
 if __name__ == "__main__":
-    res = send_push_notification(
-        title="🏆 Infortts Push Test",
-        body="Multi-Channel Notification Gateway Verified.",
-        topic="trades"
+    res = broadcast_all_apps_notification(
+        title="⚡ Emergency OTA Update Broadcast",
+        body="Top-transitioning alerts & instant CDN patch sync activated across all apps.",
     )
-    print("Push dispatch result:", res)
+    print("All-Apps Push dispatch result:", res)

@@ -653,6 +653,13 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               _currentBuildNumber = bump.buildNumber.toString();
               _otaPatchText = bump.displayString;
             });
+            showTopSnackBar(
+              context,
+              title: "⚡ EMERGENCY OTA PATCH APPLIED",
+              message: "Patch #${manifest.latestPatch} auto-installed silently from CDN.",
+              icon: Icons.system_update_rounded,
+              color: AcousticColors.sonarCyan,
+            );
           }
         }
       } catch (_) {
@@ -2305,5 +2312,174 @@ class _SplashGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+void showTopSnackBar(
+  BuildContext context, {
+  required String message,
+  String title = "SYSTEM ALERT",
+  IconData icon = Icons.notifications_active_rounded,
+  Color color = AcousticColors.sonarCyan,
+  Duration duration = const Duration(seconds: 4),
+}) {
+  final overlay = Overlay.maybeOf(context);
+  if (overlay == null) return;
+
+  late OverlayEntry entry;
+  entry = OverlayEntry(
+    builder: (ctx) => _TopSnackBarOverlayWidget(
+      title: title,
+      message: message,
+      icon: icon,
+      color: color,
+      duration: duration,
+      onDismiss: () {
+        if (entry.mounted) {
+          entry.remove();
+        }
+      },
+    ),
+  );
+  overlay.insert(entry);
+}
+
+class _TopSnackBarOverlayWidget extends StatefulWidget {
+  final String title;
+  final String message;
+  final IconData icon;
+  final Color color;
+  final Duration duration;
+  final VoidCallback onDismiss;
+
+  const _TopSnackBarOverlayWidget({
+    Key? key,
+    required this.title,
+    required this.message,
+    required this.icon,
+    required this.color,
+    required this.duration,
+    required this.onDismiss,
+  }) : super(key: key);
+
+  @override
+  State<_TopSnackBarOverlayWidget> createState() => _TopSnackBarOverlayWidgetState();
+}
+
+class _TopSnackBarOverlayWidgetState extends State<_TopSnackBarOverlayWidget> with SingleTickerProviderStateMixin {
+  late AnimationController _animController;
+  late Animation<Offset> _offsetAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 350),
+    );
+    _offsetAnim = Tween<Offset>(
+      begin: const Offset(0.0, -1.2),
+      end: Offset.zero,
+    ).animate(CurvedAnimation(
+      parent: _animController,
+      curve: Curves.easeOutCubic,
+    ));
+
+    _animController.forward();
+
+    Future.delayed(widget.duration, () {
+      if (mounted) {
+        _animController.reverse().then((_) {
+          widget.onDismiss();
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final topPadding = MediaQuery.of(context).padding.top;
+    return Positioned(
+      top: topPadding + 8,
+      left: 12,
+      right: 12,
+      child: SlideTransition(
+        position: _offsetAnim,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF0F141F).withOpacity(0.96),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: widget.color, width: 1.2),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.color.withOpacity(0.3),
+                  blurRadius: 16,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: widget.color.withOpacity(0.18),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(widget.icon, color: widget.color, size: 18),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.title,
+                        style: GoogleFonts.outfit(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: widget.color,
+                          letterSpacing: 1.0,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.message,
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () {
+                    _animController.reverse().then((_) {
+                      widget.onDismiss();
+                    });
+                  },
+                  child: const Padding(
+                    padding: EdgeInsets.all(4.0),
+                    child: Icon(Icons.close, size: 16, color: AcousticColors.steel),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
