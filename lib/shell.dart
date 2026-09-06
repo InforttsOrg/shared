@@ -1614,41 +1614,33 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       ),
     );
 
-    final updater = ShorebirdUpdater();
-    if (!updater.isAvailable) {
-      final cdnEngine = InforttsCdnOtaEngine(
-        appName: widget.appName.toLowerCase(),
-        appVersion: _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '1.0.0'),
-      );
-      await cdnEngine.checkAndApplyUpdate(
-        onStatusChanged: (status, patchNum) {
-          messenger.clearSnackBars();
-          if (status == InforttsCdnOtaStatus.installed) {
-            messenger.showSnackBar(
-              SnackBar(
-                backgroundColor: AcousticColors.darkCarbon,
-                content: Text("✓ Infortts CDN OTA Patch #${patchNum ?? 1} installed! Restart app to apply.", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan)),
-              ),
-            );
-          } else if (status == InforttsCdnOtaStatus.upToDate) {
-            messenger.showSnackBar(
-              SnackBar(
-                backgroundColor: AcousticColors.darkCarbon,
-                content: Text("✓ App is up to date on Infortts CDN OTA (Patch #${patchNum ?? 1} active).", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan)),
-              ),
-            );
-          } else if (status == InforttsCdnOtaStatus.error) {
-            messenger.showSnackBar(
-              SnackBar(
-                backgroundColor: AcousticColors.darkCarbon,
-                content: Text("✓ Infortts CDN OTA Engine Active. System up to date.", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan)),
-              ),
-            );
-          }
-        },
-      );
-      return;
-    }
+    final cdnEngine = InforttsCdnOtaEngine(
+      appName: widget.appName.toLowerCase(),
+      appVersion: _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '1.0.0'),
+    );
+    final cdnApplied = await cdnEngine.checkAndApplyUpdate(
+      onStatusChanged: (status, patchNum) {
+        messenger.clearSnackBars();
+        if (status == InforttsCdnOtaStatus.installed) {
+          _showRestartDialog(context);
+        } else if (status == InforttsCdnOtaStatus.upToDate) {
+          messenger.showSnackBar(
+            SnackBar(
+              backgroundColor: AcousticColors.darkCarbon,
+              content: Text("✓ App is up to date on Infortts CDN OTA (Patch #${patchNum ?? 0} active).", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan)),
+            ),
+          );
+        } else if (status == InforttsCdnOtaStatus.error) {
+          messenger.showSnackBar(
+            SnackBar(
+              backgroundColor: AcousticColors.darkCarbon,
+              content: Text("✓ Infortts CDN OTA Engine Active. System up to date.", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan)),
+            ),
+          );
+        }
+      },
+    );
+    if (cdnApplied) return;
 
     try {
       final status = await updater.checkForUpdate();

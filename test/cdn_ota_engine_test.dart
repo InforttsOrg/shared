@@ -61,6 +61,26 @@ void main() {
       );
       expect(legacyBump.version, equals('2.02.01'));
       expect(legacyBump.buildNumber, equals(221));
+    test('InforttsOtaManifest deserialization from Forensics API JSON format', () {
+      final forensicsJson = {
+        'status': 'success',
+        'latest_version': '2.02.02',
+        'latest_build': 222,
+        'min_required_build': 220,
+        'download_url': 'https://forensics.infortts.site/patches/mitochondria/v2.02.00/patch_2.bin',
+        'published_at': '2026-09-06T07:35:00Z'
+      };
+
+      final manifest = InforttsOtaManifest.fromJson(forensicsJson);
+      expect(manifest.version, equals('2.02.02'));
+      expect(manifest.latestPatch, equals(2));
+      expect(manifest.patchUrl, equals('https://forensics.infortts.site/patches/mitochondria/v2.02.00/patch_2.bin'));
+    });
+
+    test('InforttsVersionHelper getBaseVersion extraction', () {
+      expect(InforttsVersionHelper.getBaseVersion('2.02.02'), equals('2.02.00'));
+      expect(InforttsVersionHelper.getBaseVersion('2.02.00'), equals('2.02.00'));
+      expect(InforttsVersionHelper.getBaseVersion('2.2.0'), equals('2.02.00'));
     });
   });
 }

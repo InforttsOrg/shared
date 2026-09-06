@@ -22,12 +22,27 @@ class InforttsOtaManifest {
   });
 
   factory InforttsOtaManifest.fromJson(Map<String, dynamic> json) {
+    int patchNum = 0;
+    if (json.containsKey('latestPatch')) {
+      patchNum = (json['latestPatch'] as num?)?.toInt() ?? 0;
+    } else if (json.containsKey('latest_version')) {
+      final ver = json['latest_version'] as String? ?? '';
+      final parts = ver.split('.');
+      if (parts.length >= 3) {
+        patchNum = int.tryParse(parts[2]) ?? 0;
+      }
+    }
+
+    final rawUrl = json['patchUrl'] as String? ?? json['download_url'] as String? ?? '';
+    final versionStr = json['version'] as String? ?? json['latest_version'] as String? ?? '';
+    final updated = json['updatedAt'] as String? ?? json['published_at'] as String? ?? '';
+
     return InforttsOtaManifest(
       app: json['app'] as String? ?? '',
-      version: json['version'] as String? ?? '',
-      latestPatch: (json['latestPatch'] as num?)?.toInt() ?? 0,
-      updatedAt: json['updatedAt'] as String? ?? '',
-      patchUrl: json['patchUrl'] as String? ?? '',
+      version: versionStr,
+      latestPatch: patchNum,
+      updatedAt: updated,
+      patchUrl: rawUrl,
     );
   }
 
@@ -66,19 +81,23 @@ class InforttsCdnOtaEngine {
     this.cdnBaseUrl = defaultCdnBaseUrl,
   });
 
-  /// Check local stored patch version for this app & appVersion
+  /// Base version string (e.g. 2.02.00) normalized for persistent storage keys
+  String get baseAppVersion => InforttsVersionHelper.getBaseVersion(appVersion);
+
+  /// Check local stored patch version for this app & baseAppVersion
   Future<int> getLocalPatchNumber() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('$prefsPatchKeyPrefix${appName}_$appVersion') ?? 0;
+    return prefs.getInt('$prefsPatchKeyPrefix${appName}_$baseAppVersion') ?? 0;
   }
 
   /// Check CDN for available manifest & new patches with candidate URL fallbacks
   Future<InforttsOtaManifest?> fetchManifest() async {
     final candidateUrls = [
-      'https://infortts.site/api/ota/manifest?app=$appName&version=$appVersion',
-      'https://infortts.site/ota_${appName}_v${appVersion}_manifest.json',
-      '$cdnBaseUrl/$appName/v$appVersion/manifest.json',
-      '$cdnBaseUrl/${appName}_v${appVersion}_manifest.json',
+      'https://forensics.infortts.site/api/v1/ota/check?app=$appName&version=$baseAppVersion',
+      'https://infortts.site/api/ota/manifest?app=$appName&version=$baseAppVersion',
+      'https://infortts.site/ota_${appName}_v${baseAppVersion}_manifest.json',
+      '$cdnBaseUrl/$appName/v$baseAppVersion/manifest.json',
+      '$cdnBaseUrl/${appName}_v${baseAppVersion}_manifest.json',
     ];
 
     for (final manifestUrl in candidateUrls) {
@@ -117,10 +136,11 @@ class InforttsCdnOtaEngine {
 
           final candidatePatchUrls = [
             if (manifest.patchUrl.isNotEmpty) manifest.patchUrl,
-            'https://infortts.site/api/ota/patch?app=$appName&version=$appVersion&patch=${manifest.latestPatch}',
-            'https://infortts.site/ota_${appName}_v${appVersion}_patch_${manifest.latestPatch}.bin',
-            '$cdnBaseUrl/$appName/v$appVersion/patch_${manifest.latestPatch}.bin',
-            '$cdnBaseUrl/${appName}_v${appVersion}_patch_${manifest.latestPatch}.bin',
+            'https://forensics.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
+            'https://infortts.site/api/ota/patch?app=$appName&version=$baseAppVersion&patch=${manifest.latestPatch}',
+            'https://infortts.site/ota_${appName}_v${baseAppVersion}_patch_${manifest.latestPatch}.bin',
+            '$cdnBaseUrl/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
+            '$cdnBaseUrl/${appName}_v${baseAppVersion}_patch_${manifest.latestPatch}.bin',
           ];
 
           http.Response? patchResponse;
@@ -136,7 +156,7 @@ class InforttsCdnOtaEngine {
 
           if (patchResponse != null && patchResponse.statusCode == 200) {
             final dir = await getApplicationSupportDirectory();
-            final patchDir = Directory('${dir.path}/infortts_ota/$appName/v$appVersion');
+            final patchDir = Directory('${dir.path}/infortts_ota/$appName/v$baseAppVersion');
             await patchDir.create(recursive: true);
 
             final patchFile = File('${patchDir.path}/patch_${manifest.latestPatch}.bin');
@@ -144,7 +164,7 @@ class InforttsCdnOtaEngine {
 
             // Update SharedPreferences
             final prefs = await SharedPreferences.getInstance();
-            await prefs.setInt('$prefsPatchKeyPrefix${appName}_$appVersion', manifest.latestPatch);
+            await prefs.setInt('$prefsPatchKeyPrefix${appName}_$baseAppVersion', manifest.latestPatch);
 
             onStatusChanged?.call(InforttsCdnOtaStatus.installed, manifest.latestPatch);
             return true;
@@ -183,6 +203,18 @@ class InforttsVersionBump {
 
 /// Strict Version Bump & Formatting Helper for Infortts OTA
 class InforttsVersionHelper {
+  /// Extract base version (epoch.major.00) from any patch version string
+  static String getBaseVersion(String version) {
+    final parts = version.split('.');
+    if (parts.length >= 3) {
+      String epochStr = parts[0];
+      int majorInt = int.tryParse(parts[1]) ?? 2;
+      String majorStr = majorInt.toString().padLeft(2, '0');
+      return '$epochStr.$majorStr.00';
+    }
+    return version;
+  }
+
   /// Calculate strictly bumped version & build number for an active patch
   /// Following global Infortts scheme: epoch.2-digit-major.2-digit-minor (epoch is 2, e.g. 2.02.00 or 2.02.01)
   static InforttsVersionBump calculateBump({
