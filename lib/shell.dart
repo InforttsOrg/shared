@@ -640,9 +640,19 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         if (manifest == null) return;
 
         final currentLocalPatch = await cdnEngine.getLocalPatchNumber();
-        if (manifest.latestPatch > currentLocalPatch && manifest.latestPatch != _dismissedPatchNumber) {
-          if (mounted && !_isOtaModalShowing) {
-            _showNewPatchAvailableModal(context, manifest, cdnEngine);
+        if (manifest.latestPatch > currentLocalPatch) {
+          final success = await cdnEngine.downloadAndApplyPatch(manifest);
+          if (success && mounted) {
+            final bump = InforttsVersionHelper.calculateBump(
+              baseVersion: cdnEngine.baseAppVersion,
+              baseBuild: 20200,
+              patchNumber: manifest.latestPatch,
+            );
+            setState(() {
+              _currentVersion = bump.version;
+              _currentBuildNumber = bump.buildNumber.toString();
+              _otaPatchText = bump.displayString;
+            });
           }
         }
       } catch (_) {

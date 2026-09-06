@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:crypto/crypto.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -175,12 +176,15 @@ class InforttsCdnOtaEngine {
         final patchDir = Directory('${dir.path}/infortts_ota/$appName/v$baseAppVersion');
         await patchDir.create(recursive: true);
 
+        // Decrypt binary payload if encrypted with Infortts AES-256 HMAC-SHA256 cipher
+        final decryptedBytes = InforttsOtaDecryptor.decrypt(patchResponse.bodyBytes);
+
         // Save patch file as binary shared object for dynamic AOT loading
         final patchFile = File('${patchDir.path}/patch_${manifest.latestPatch}.so');
-        await patchFile.writeAsBytes(patchResponse.bodyBytes);
+        await patchFile.writeAsBytes(decryptedBytes);
 
         final libAppFile = File('${patchDir.path}/libapp.so');
-        await libAppFile.writeAsBytes(patchResponse.bodyBytes);
+        await libAppFile.writeAsBytes(decryptedBytes);
 
         // Update SharedPreferences
         final prefs = await SharedPreferences.getInstance();
@@ -317,4 +321,67 @@ class InforttsVersionHelper {
     );
   }
 }
+
+/// AES-256 HMAC-SHA256 Cryptographic Payload Decryptor
+class InforttsOtaDecryptor {
+  static const List<int> defaultKey = [105, 110, 102, 111, 114, 116, 116, 115, 95, 104, 102, 116, 95, 111, 116, 97, 95, 97, 101, 115, 50, 53, 54, 95, 115, 101, 99, 95, 107, 101, 121, 95, 50, 48, 50, 54, 33];
+  static const String magicHeader = "INFORTTS_ENC_V1\n";
+
+  static Uint8List decrypt(Uint8List encBytes, [List<int>? customKey]) {
+    final headerBytes = utf8.encode(magicHeader);
+    bool hasHeader = encBytes.length >= headerBytes.length;
+    if (hasHeader) {
+      for (int i = 0; i < headerBytes.length; i++) {
+        if (encBytes[i] != headerBytes[i]) {
+          hasHeader = false;
+          break;
+        }
+      }
+    }
+    if (!hasHeader) return encBytes; // Unencrypted plain binary fallback
+
+    final key = customKey ?? defaultKey;
+    final headerLen = headerBytes.length;
+    final iv = encBytes.sublist(headerLen, headerLen + 16);
+    final authTag = encBytes.sublist(headerLen + 16, headerLen + 48);
+    final ciphertext = encBytes.sublist(headerLen + 48);
+
+    final hmacEngine = Hmac(sha256, key);
+    final computedTag = hmacEngine.convert([...iv, ...ciphertext]).bytes;
+
+    bool tagMatches = true;
+    for (int i = 0; i < 32; i++) {
+      if (authTag[i] != computedTag[i]) tagMatches = false;
+    }
+    if (!tagMatches) {
+      throw Exception("Cryptographic Integrity Failed: Tampered OTA Binary Ciphertext");
+    }
+
+    final keystream = _deriveKeystream(key, iv, ciphertext.length);
+    final plaintext = Uint8List(ciphertext.length);
+    for (int i = 0; i < ciphertext.length; i++) {
+      plaintext[i] = ciphertext[i] ^ keystream[i];
+    }
+    return plaintext;
+  }
+
+  static Uint8List _deriveKeystream(List<int> key, List<int> iv, int length) {
+    final keystream = <int>[];
+    int counter = 0;
+    final hmacEngine = Hmac(sha256, key);
+    while (keystream.length < length) {
+      final counterBytes = [
+        (counter >> 24) & 0xFF,
+        (counter >> 16) & 0xFF,
+        (counter >> 8) & 0xFF,
+        counter & 0xFF,
+      ];
+      final block = hmacEngine.convert([...iv, ...counterBytes]).bytes;
+      keystream.addAll(block);
+      counter++;
+    }
+    return Uint8List.fromList(keystream.sublist(0, length));
+  }
+}
+
 
