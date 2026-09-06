@@ -1,0 +1,54 @@
+name: Auto Publish Infortts OTA Patch
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish-ota-patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Trigger Automatic Infortts OTA Patch Increment & Deployment
+        env:
+          VPS_HOST: "130.210.24.48"
+          VPS_USER: "ubuntu"
+          SSH_PRIVATE_KEY: ${{ secrets.INPORTTS_CLOUD_KEY }}
+        run: |
+          echo "Automating OTA Patch distribution for commit: ${{ github.sha }}"
+          COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Commit Message: $COMMIT_MSG"
+          
+          # Optional Remote VPS Dispatch Step
+          if [ -n "$SSH_PRIVATE_KEY" ]; then
+            mkdir -p ~/.ssh
+            echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            ssh -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "python3 -c \"
+          path = '/opt/infortts/projects/mitochondria/bot/forensics_dashboard.py'
+          import re, time
+          with open(path, 'r') as f:
+              content = f.read()
+
+          m = re.search(r'\\\"latestPatch\\\":\s*(\d+)', content)
+          if m:
+              cur_p = int(m.group(1))
+              new_p = cur_p + 1
+              new_ver = f'2.02.{new_p:02d}'
+              new_build = int(f'202{new_p:02d}')
+              content = re.sub(r'\\\"latestPatch\\\":\s*\d+', f'\\\"latestPatch\\\": {new_p}', content)
+              content = re.sub(r'\\\"latest_version\\\":\s*\\\"[^\\\"]+\\\"', f'\\\"latest_version\\\": \\\"{new_ver}\\\"', content)
+              content = re.sub(r'\\\"latest_build\\\":\s*\d+', f'\\\"latest_build\\\": {new_build}', content)
+              content = re.sub(r'patch_\d+\.bin', f'patch_{new_p}.bin', content)
+
+              with open(path, 'w') as f:
+                  f.write(content)
+
+          import subprocess
+          subprocess.run('fuser -k 8007/tcp || true', shell=True)
+          subprocess.Popen(['nohup', 'python3', path], cwd='/opt/infortts/projects/mitochondria/bot')
+          \""
+          fi
