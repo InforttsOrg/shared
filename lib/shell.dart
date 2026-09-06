@@ -1642,6 +1642,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     );
     if (cdnApplied) return;
 
+    final updater = ShorebirdUpdater();
     try {
       final status = await updater.checkForUpdate();
       messenger.clearSnackBars();
