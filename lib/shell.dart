@@ -1889,16 +1889,6 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 ),
                 actions: [
                   if (!isDownloading) ...[
-                    TextButton(
-                      onPressed: () {
-                        _dismissedPatchNumber = manifest.latestPatch;
-                        Navigator.of(dialogCtx).pop();
-                      },
-                      child: Text(
-                        "Later",
-                        style: GoogleFonts.outfit(color: AcousticColors.steel),
-                      ),
-                    ),
                     ElevatedButton.icon(
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AcousticColors.sonarCyan,
@@ -2076,10 +2066,6 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           style: GoogleFonts.outfit(color: AcousticColors.titanium, fontSize: 13),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(),
-            child: Text("Later", style: GoogleFonts.outfit(color: AcousticColors.steel)),
-          ),
           ElevatedButton.icon(
             style: ElevatedButton.styleFrom(
               backgroundColor: AcousticColors.sonarCyan,
