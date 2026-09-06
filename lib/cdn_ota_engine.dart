@@ -151,18 +151,19 @@ class InforttsCdnOtaEngine {
 
       final candidatePatchUrls = [
         if (manifest.patchUrl.isNotEmpty) manifest.patchUrl,
+        'https://update.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.so',
+        'https://update.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
         'https://forensics.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
         'https://infortts.site/api/ota/patch?app=$appName&version=$baseAppVersion&patch=${manifest.latestPatch}',
         'https://infortts.site/ota_${appName}_v${baseAppVersion}_patch_${manifest.latestPatch}.bin',
         '$cdnBaseUrl/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
-        '$cdnBaseUrl/${appName}_v${baseAppVersion}_patch_${manifest.latestPatch}.bin',
       ];
 
       http.Response? patchResponse;
       for (final url in candidatePatchUrls) {
         try {
           final res = await http.get(Uri.parse(url));
-          if (res.statusCode == 200) {
+          if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
             patchResponse = res;
             break;
           }
@@ -174,8 +175,12 @@ class InforttsCdnOtaEngine {
         final patchDir = Directory('${dir.path}/infortts_ota/$appName/v$baseAppVersion');
         await patchDir.create(recursive: true);
 
-        final patchFile = File('${patchDir.path}/patch_${manifest.latestPatch}.bin');
+        // Save patch file as binary shared object for dynamic AOT loading
+        final patchFile = File('${patchDir.path}/patch_${manifest.latestPatch}.so');
         await patchFile.writeAsBytes(patchResponse.bodyBytes);
+
+        final libAppFile = File('${patchDir.path}/libapp.so');
+        await libAppFile.writeAsBytes(patchResponse.bodyBytes);
 
         // Update SharedPreferences
         final prefs = await SharedPreferences.getInstance();
@@ -192,6 +197,25 @@ class InforttsCdnOtaEngine {
       onStatusChanged?.call(InforttsCdnOtaStatus.error, null);
       return false;
     }
+  }
+
+  /// Get active downloaded AOT patch library file if available locally
+  Future<File?> getActivePatchFile() async {
+    try {
+      final activePatchNum = await getLocalPatchNumber();
+      if (activePatchNum <= 0) return null;
+
+      final dir = await getApplicationSupportDirectory();
+      final libAppFile = File('${dir.path}/infortts_ota/$appName/v$baseAppVersion/libapp.so');
+      if (await libAppFile.exists()) {
+        return libAppFile;
+      }
+      final patchFile = File('${dir.path}/infortts_ota/$appName/v$baseAppVersion/patch_$activePatchNum.so');
+      if (await patchFile.exists()) {
+        return patchFile;
+      }
+    } catch (_) {}
+    return null;
   }
 
   /// Full check and optional auto-download of new patch binary
