@@ -34,5 +34,24 @@ void main() {
       final reserialized = manifest.toJson();
       expect(reserialized['latestPatch'], equals(1));
     });
+
+    test('Strict version bump calculation for base release and patch 1', () {
+      final baseBump = InforttsVersionHelper.calculateBump(
+        baseVersion: '2.2.0',
+        baseBuild: 220,
+        patchNumber: 0,
+      );
+      expect(baseBump.version, equals('2.2.0'));
+      expect(baseBump.buildNumber, equals(220));
+
+      final patch1Bump = InforttsVersionHelper.calculateBump(
+        baseVersion: '2.2.0',
+        baseBuild: 220,
+        patchNumber: 1,
+      );
+      expect(patch1Bump.version, equals('2.2.1'));
+      expect(patch1Bump.buildNumber, equals(221));
+      expect(patch1Bump.displayString, contains('v2.2.1+221'));
+    });
   });
 }

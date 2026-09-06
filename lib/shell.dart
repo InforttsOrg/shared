@@ -587,31 +587,25 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   Future<void> _initPackageInfo() async {
     try {
       final info = await PackageInfo.fromPlatform();
-      final updater = ShorebirdUpdater();
-      int? patchNum;
-      if (updater.isAvailable) {
-        final currentPatch = await updater.readCurrentPatch();
-        patchNum = currentPatch?.number;
-      }
+      final baseVersion = info.version.isNotEmpty ? info.version : "2.2.0";
+      final baseBuild = info.buildNumber.isNotEmpty ? (int.tryParse(info.buildNumber) ?? 220) : 220;
+
+      final cdnEngine = InforttsCdnOtaEngine(
+        appName: widget.appName.toLowerCase(),
+        appVersion: baseVersion,
+      );
+      final activePatchNum = await cdnEngine.getLocalPatchNumber();
+      final bump = InforttsVersionHelper.calculateBump(
+        baseVersion: baseVersion,
+        baseBuild: baseBuild,
+        patchNumber: activePatchNum,
+      );
+
       if (mounted) {
         setState(() {
-          if (info.version.isNotEmpty) {
-            _currentVersion = info.version;
-          } else {
-            _currentVersion = "2.1.0";
-          }
-          if (info.buildNumber.isNotEmpty) {
-            _currentBuildNumber = info.buildNumber;
-          } else {
-            _currentBuildNumber = "207";
-          }
-          final v = _currentVersion.isNotEmpty ? _currentVersion : '2.1.0';
-          final b = _currentBuildNumber.isNotEmpty ? _currentBuildNumber : '207';
-          if (patchNum != null && patchNum > 0) {
-            _shorebirdPatchText = "v$v+$b (Infortts Direct OTA Patch #$patchNum Active [Internal Track])";
-          } else {
-            _shorebirdPatchText = "v$v+$b (Infortts Direct Cloud OTA Active [Internal Track])";
-          }
+          _currentVersion = bump.version;
+          _currentBuildNumber = bump.buildNumber.toString();
+          _shorebirdPatchText = bump.displayString;
         });
       }
       InforttsDirectOtaEngine().checkUpdate();

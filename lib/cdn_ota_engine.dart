@@ -140,3 +140,56 @@ class InforttsCdnOtaEngine {
     }
   }
 }
+
+/// Helper model representing bumped version data
+class InforttsVersionBump {
+  final String version;
+  final int buildNumber;
+  final int patchNumber;
+  final String displayString;
+
+  InforttsVersionBump({
+    required this.version,
+    required this.buildNumber,
+    required this.patchNumber,
+    required this.displayString,
+  });
+}
+
+/// Strict Version Bump & Formatting Helper for Infortts OTA
+class InforttsVersionHelper {
+  /// Calculate strictly bumped version & build number for an active patch
+  /// e.g. baseVersion '2.2.0', baseBuild 220, patchNum 1 =>
+  ///      InforttsVersionBump(version: '2.2.1', buildNumber: 221, displayString: 'v2.2.1+221 (Infortts CDN OTA Patch #1 Active)')
+  static InforttsVersionBump calculateBump({
+    required String baseVersion,
+    required int baseBuild,
+    required int patchNumber,
+  }) {
+    if (patchNumber <= 0) {
+      return InforttsVersionBump(
+        version: baseVersion,
+        buildNumber: baseBuild,
+        patchNumber: 0,
+        displayString: 'v$baseVersion+$baseBuild [Base Release]',
+      );
+    }
+
+    final parts = baseVersion.split('.');
+    int major = parts.isNotEmpty ? int.tryParse(parts[0]) ?? 2 : 2;
+    int minor = parts.length > 1 ? int.tryParse(parts[1]) ?? 2 : 2;
+    int basePatch = parts.length > 2 ? int.tryParse(parts[2]) ?? 0 : 0;
+
+    int newPatch = basePatch + patchNumber;
+    int newBuild = baseBuild + patchNumber;
+    String newVersionStr = '$major.$minor.$newPatch';
+
+    return InforttsVersionBump(
+      version: newVersionStr,
+      buildNumber: newBuild,
+      patchNumber: patchNumber,
+      displayString: 'v$newVersionStr+$newBuild (Infortts CDN OTA Patch #$patchNumber Active)',
+    );
+  }
+}
+
