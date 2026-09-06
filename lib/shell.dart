@@ -1511,13 +1511,13 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 ),
                 child: Column(
                   children: [
-                    _buildProfileRow("NATS HOST", const String.fromEnvironment('NATS_HOST', defaultValue: 'nats://nats.infortts.site:4222')),
+                    _buildProfileRow("NATS HOST", const String.fromEnvironment('NATS_HOST', defaultValue: 'nats://update.infortts.site:4222')),
                     const SizedBox(height: 6),
-                    _buildProfileRow("VECTOR DB", const String.fromEnvironment('VECTOR_DB_URL', defaultValue: 'qdrant://qdrant.infortts.site:6333')),
+                    _buildProfileRow("VECTOR DB", const String.fromEnvironment('VECTOR_DB_URL', defaultValue: 'qdrant://update.infortts.site:6333')),
                     const SizedBox(height: 6),
-                    _buildProfileRow("FORENSICS API", const String.fromEnvironment('FORENSICS_API_URL', defaultValue: 'https://forensics.infortts.site/api/v1')),
+                    _buildProfileRow("FORENSICS API", const String.fromEnvironment('FORENSICS_API_URL', defaultValue: 'https://update.infortts.site/api/v1')),
                     const SizedBox(height: 6),
-                    _buildProfileRow("OTA CDN", const String.fromEnvironment('OTA_CDN_URL', defaultValue: 'https://infortts.site/patches')),
+                    _buildProfileRow("OTA CDN", const String.fromEnvironment('OTA_CDN_URL', defaultValue: 'https://update.infortts.site/patches')),
                   ],
                 ),
               ),
