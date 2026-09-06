@@ -35,24 +35,24 @@ void main() {
       expect(reserialized['latestPatch'], equals(1));
     });
 
-    test('Strict version bump calculation for base release and patch 1', () {
+    test('Strict version bump calculation for base release and patch 3', () {
       final baseBump = InforttsVersionHelper.calculateBump(
         baseVersion: '2.02.00',
-        baseBuild: 220,
+        baseBuild: 20200,
         patchNumber: 0,
       );
       expect(baseBump.version, equals('2.02.00'));
-      expect(baseBump.buildNumber, equals(220));
-      expect(baseBump.displayString, contains('v2.02.00+220 [Base Release]'));
+      expect(baseBump.buildNumber, equals(20200));
+      expect(baseBump.displayString, contains('v2.02.00+20200 [Base Release]'));
 
-      final patch1Bump = InforttsVersionHelper.calculateBump(
+      final patch3Bump = InforttsVersionHelper.calculateBump(
         baseVersion: '2.02.00',
-        baseBuild: 220,
-        patchNumber: 1,
+        baseBuild: 20200,
+        patchNumber: 3,
       );
-      expect(patch1Bump.version, equals('2.02.01'));
-      expect(patch1Bump.buildNumber, equals(221));
-      expect(patch1Bump.displayString, contains('v2.02.01+221 (Infortts CDN OTA Patch #1 Active)'));
+      expect(patch3Bump.version, equals('2.02.03'));
+      expect(patch3Bump.buildNumber, equals(20203));
+      expect(patch3Bump.displayString, contains('v2.02.03+20203 (Infortts CDN OTA Patch #3 Active)'));
 
       final legacyBump = InforttsVersionHelper.calculateBump(
         baseVersion: '2.2.0',
@@ -60,7 +60,8 @@ void main() {
         patchNumber: 1,
       );
       expect(legacyBump.version, equals('2.02.01'));
-      expect(legacyBump.buildNumber, equals(221));
+      expect(legacyBump.buildNumber, equals(20201));
+    });
     test('InforttsOtaManifest deserialization from Forensics API JSON format', () {
       final forensicsJson = {
         'status': 'success',

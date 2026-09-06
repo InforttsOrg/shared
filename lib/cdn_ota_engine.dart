@@ -232,22 +232,23 @@ class InforttsVersionHelper {
     String patchStr = totalPatch.toString().padLeft(2, '0');
     String canonicalVersion = '$epochStr.$majorStr.$patchStr';
 
-    int newBuild = baseBuild + (patchNumber > 0 ? patchNumber : 0);
+    // Build number rule: build number is canonical version without dots (e.g. "2.02.03" -> 20203)
+    int computedBuild = int.tryParse('$epochStr$majorStr$patchStr') ?? (baseBuild + (patchNumber > 0 ? patchNumber : 0));
 
     if (patchNumber <= 0) {
       return InforttsVersionBump(
         version: canonicalVersion,
-        buildNumber: baseBuild,
+        buildNumber: computedBuild,
         patchNumber: 0,
-        displayString: 'v$canonicalVersion+$baseBuild [Base Release]',
+        displayString: 'v$canonicalVersion+$computedBuild [Base Release]',
       );
     }
 
     return InforttsVersionBump(
       version: canonicalVersion,
-      buildNumber: newBuild,
+      buildNumber: computedBuild,
       patchNumber: patchNumber,
-      displayString: 'v$canonicalVersion+$newBuild (Infortts CDN OTA Patch #$patchNumber Active)',
+      displayString: 'v$canonicalVersion+$computedBuild (Infortts CDN OTA Patch #$patchNumber Active)',
     );
   }
 }
