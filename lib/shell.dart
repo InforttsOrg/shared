@@ -599,12 +599,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   Future<void> _initPackageInfo() async {
     try {
       final info = await PackageInfo.fromPlatform();
-      final baseVersion = info.version.isNotEmpty ? info.version : "2.02.00";
-      
-      final cleanVer = baseVersion.replaceAll('.', '');
-      final baseBuild = (cleanVer.length == 5 && int.tryParse(cleanVer) != null)
-          ? int.parse(cleanVer)
-          : 20200;
+      final rawVersion = info.version.isNotEmpty ? info.version : (widget.appVersion ?? "2.02.00");
+      final baseVersion = InforttsVersionHelper.getBaseVersion(rawVersion);
+      const baseBuild = 20200;
 
       final cdnEngine = InforttsCdnOtaEngine(
         appName: widget.appName.toLowerCase(),
