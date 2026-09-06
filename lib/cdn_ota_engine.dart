@@ -75,6 +75,7 @@ class InforttsCdnOtaEngine {
   /// Check CDN for available manifest & new patches with candidate URL fallbacks
   Future<InforttsOtaManifest?> fetchManifest() async {
     final candidateUrls = [
+      'https://infortts.site/api/ota/manifest?app=$appName&version=$appVersion',
       'https://infortts.site/ota_${appName}_v${appVersion}_manifest.json',
       '$cdnBaseUrl/$appName/v$appVersion/manifest.json',
       '$cdnBaseUrl/${appName}_v${appVersion}_manifest.json',
@@ -116,6 +117,7 @@ class InforttsCdnOtaEngine {
 
           final candidatePatchUrls = [
             if (manifest.patchUrl.isNotEmpty) manifest.patchUrl,
+            'https://infortts.site/api/ota/patch?app=$appName&version=$appVersion&patch=${manifest.latestPatch}',
             'https://infortts.site/ota_${appName}_v${appVersion}_patch_${manifest.latestPatch}.bin',
             '$cdnBaseUrl/$appName/v$appVersion/patch_${manifest.latestPatch}.bin',
             '$cdnBaseUrl/${appName}_v${appVersion}_patch_${manifest.latestPatch}.bin',
