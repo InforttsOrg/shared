@@ -19,6 +19,7 @@ import 'animations.dart';
 import 'url_helper.dart';
 import 'error.dart';
 import 'ota_engine.dart';
+import 'cdn_ota_engine.dart';
 
 class InforttsTab {
   final String label;

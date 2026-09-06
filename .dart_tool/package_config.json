@@ -141,9 +141,9 @@
     },
     {
       "name": "flutter",
-      "rootUri": "file:///Users/admin/.shorebird/bin/cache/flutter/9f9f19aaac8f092532e59f3447c501b4d4089efb/packages/flutter",
+      "rootUri": "file:///Users/admin/develop/flutter/packages/flutter",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.11"
     },
     {
       "name": "flutter_animate",
@@ -159,15 +159,15 @@
     },
     {
       "name": "flutter_test",
-      "rootUri": "file:///Users/admin/.shorebird/bin/cache/flutter/9f9f19aaac8f092532e59f3447c501b4d4089efb/packages/flutter_test",
+      "rootUri": "file:///Users/admin/develop/flutter/packages/flutter_test",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.11"
     },
     {
       "name": "flutter_web_plugins",
-      "rootUri": "file:///Users/admin/.shorebird/bin/cache/flutter/9f9f19aaac8f092532e59f3447c501b4d4089efb/packages/flutter_web_plugins",
+      "rootUri": "file:///Users/admin/develop/flutter/packages/flutter_web_plugins",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.11"
     },
     {
       "name": "glob",
@@ -309,9 +309,9 @@
     },
     {
       "name": "matcher",
-      "rootUri": "file:///Users/admin/.agy-multi/agy2/.pub-cache/hosted/pub.dev/matcher-0.12.19",
+      "rootUri": "file:///Users/admin/.agy-multi/agy2/.pub-cache/hosted/pub.dev/matcher-0.12.20",
       "packageUri": "lib/",
-      "languageVersion": "3.7"
+      "languageVersion": "3.10"
     },
     {
       "name": "material_color_utilities",
@@ -321,7 +321,7 @@
     },
     {
       "name": "meta",
-      "rootUri": "file:///Users/admin/.agy-multi/agy2/.pub-cache/hosted/pub.dev/meta-1.18.0",
+      "rootUri": "file:///Users/admin/.agy-multi/agy2/.pub-cache/hosted/pub.dev/meta-1.19.0",
       "packageUri": "lib/",
       "languageVersion": "3.5"
     },
@@ -495,9 +495,9 @@
     },
     {
       "name": "sky_engine",
-      "rootUri": "file:///Users/admin/.shorebird/bin/cache/flutter/9f9f19aaac8f092532e59f3447c501b4d4089efb/bin/cache/pkg/sky_engine",
+      "rootUri": "file:///Users/admin/develop/flutter/bin/cache/pkg/sky_engine",
       "packageUri": "lib/",
-      "languageVersion": "3.10"
+      "languageVersion": "3.11"
     },
     {
       "name": "source_gen",
@@ -549,9 +549,9 @@
     },
     {
       "name": "test_api",
-      "rootUri": "file:///Users/admin/.agy-multi/agy2/.pub-cache/hosted/pub.dev/test_api-0.7.11",
+      "rootUri": "file:///Users/admin/.agy-multi/agy2/.pub-cache/hosted/pub.dev/test_api-0.7.12",
       "packageUri": "lib/",
-      "languageVersion": "3.7"
+      "languageVersion": "3.10"
     },
     {
       "name": "typed_data",
@@ -561,9 +561,9 @@
     },
     {
       "name": "vector_math",
-      "rootUri": "file:///Users/admin/.agy-multi/agy2/.pub-cache/hosted/pub.dev/vector_math-2.2.0",
+      "rootUri": "file:///Users/admin/.agy-multi/agy2/.pub-cache/hosted/pub.dev/vector_math-2.4.2",
       "packageUri": "lib/",
-      "languageVersion": "3.1"
+      "languageVersion": "3.10"
     },
     {
       "name": "vm_service",
@@ -621,8 +621,8 @@
     }
   ],
   "generator": "pub",
-  "generatorVersion": "3.12.2",
-  "flutterRoot": "file:///Users/admin/.shorebird/bin/cache/flutter/9f9f19aaac8f092532e59f3447c501b4d4089efb",
-  "flutterVersion": "3.44.4",
+  "generatorVersion": "3.13.2",
+  "flutterRoot": "file:///Users/admin/develop/flutter",
+  "flutterVersion": "3.47.2",
   "pubCache": "file:///Users/admin/.agy-multi/agy2/.pub-cache"
 }

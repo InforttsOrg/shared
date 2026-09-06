@@ -243,11 +243,6 @@
       "dependencies": []
     },
     {
-      "name": "meta",
-      "version": "1.18.0",
-      "dependencies": []
-    },
-    {
       "name": "dart_style",
       "version": "3.1.7",
       "dependencies": [
@@ -498,11 +493,6 @@
       ]
     },
     {
-      "name": "vector_math",
-      "version": "2.2.0",
-      "dependencies": []
-    },
-    {
       "name": "stack_trace",
       "version": "1.12.1",
       "dependencies": [
@@ -524,7 +514,7 @@
     },
     {
       "name": "matcher",
-      "version": "0.12.19",
+      "version": "0.12.20",
       "dependencies": [
         "async",
         "meta",
@@ -535,7 +525,7 @@
     },
     {
       "name": "test_api",
-      "version": "0.7.11",
+      "version": "0.7.12",
       "dependencies": [
         "async",
         "boolean_selector",
@@ -963,6 +953,16 @@
         "meta",
         "pub_semver"
       ]
+    },
+    {
+      "name": "meta",
+      "version": "1.19.0",
+      "dependencies": []
+    },
+    {
+      "name": "vector_math",
+      "version": "2.4.2",
+      "dependencies": []
     }
   ],
   "configVersion": 1
