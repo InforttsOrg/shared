@@ -11,7 +11,6 @@ export 'shell.dart';
 export 'url_helper.dart';
 export 'error.dart';
 export 'logs.dart';
-export 'shorebird_manager.dart';
 export 'ota_engine.dart';
 export 'cdn_ota_engine.dart';
 export 'live_context.dart';

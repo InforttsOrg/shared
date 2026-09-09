@@ -5,8 +5,9 @@
   "packages": [
     {
       "name": "infortts_shared",
-      "version": "2026.02.00+20260200",
+      "version": "2.02.00+220",
       "dependencies": [
+        "crypto",
         "flutter",
         "flutter_animate",
         "google_fonts",
@@ -14,8 +15,7 @@
         "http",
         "json_annotation",
         "package_info_plus",
-        "shared_preferences",
-        "shorebird_code_push"
+        "shared_preferences"
       ],
       "devDependencies": [
         "build_runner",
@@ -102,14 +102,6 @@
       ]
     },
     {
-      "name": "shorebird_code_push",
-      "version": "2.0.7",
-      "dependencies": [
-        "ffi",
-        "meta"
-      ]
-    },
-    {
       "name": "package_info_plus",
       "version": "8.3.1",
       "dependencies": [
@@ -154,6 +146,13 @@
       "version": "4.11.0",
       "dependencies": [
         "meta"
+      ]
+    },
+    {
+      "name": "crypto",
+      "version": "3.0.7",
+      "dependencies": [
+        "typed_data"
       ]
     },
     {
@@ -423,13 +422,6 @@
       ]
     },
     {
-      "name": "crypto",
-      "version": "3.0.7",
-      "dependencies": [
-        "typed_data"
-      ]
-    },
-    {
       "name": "convert",
       "version": "3.1.2",
       "dependencies": [
@@ -549,11 +541,6 @@
       ]
     },
     {
-      "name": "ffi",
-      "version": "2.2.0",
-      "dependencies": []
-    },
-    {
       "name": "win32",
       "version": "5.15.0",
       "dependencies": [
@@ -580,6 +567,11 @@
       "dependencies": [
         "flutter"
       ]
+    },
+    {
+      "name": "ffi",
+      "version": "2.2.0",
+      "dependencies": []
     },
     {
       "name": "shared_preferences_windows",
@@ -678,6 +670,13 @@
       ]
     },
     {
+      "name": "typed_data",
+      "version": "1.4.0",
+      "dependencies": [
+        "collection"
+      ]
+    },
+    {
       "name": "http_parser",
       "version": "4.1.2",
       "dependencies": [
@@ -770,13 +769,6 @@
       "dependencies": [
         "meta",
         "path"
-      ]
-    },
-    {
-      "name": "typed_data",
-      "version": "1.4.0",
-      "dependencies": [
-        "collection"
       ]
     },
     {

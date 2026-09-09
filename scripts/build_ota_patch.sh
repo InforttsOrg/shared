@@ -50,14 +50,18 @@ else
     echo "INFORTTS_AOT_PATCH_APP_${APP_NAME}_PATCH_${PATCH_NUM}_BUILD_${BUILD_CODE}" > "$PATCH_FILE"
 fi
 
-echo "==> Step 3: Deploying patch binary to update.infortts.site ($VPS_HOST)..."
-REMOTE_DIR="/var/www/patches/$APP_NAME/v$BASE_VER"
+if [ -n "$HF_TOKEN" ]; then
+    echo "==> Step 3: Publishing patch binary to Hugging Face CDN (infortts/ota-patches)..."
+    python3 "$(dirname "$0")/publish_hf_ota.py" --app "$APP_NAME" --version "$BASE_VER" --patch "$PATCH_NUM" --file "$PATCH_FILE" || true
+fi
+
+echo "==> Step 4: Deploying patch binary fallback & updating server manifest..."
+REMOTE_DIR="/var/www/html/patches/$APP_NAME/v$BASE_VER"
 
 ssh -i $SSH_KEY -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "mkdir -p $REMOTE_DIR"
-scp -i $SSH_KEY -o StrictHostKeyChecking=no "$PATCH_FILE" $VPS_USER@$VPS_HOST:"$REMOTE_DIR/patch_${PATCH_NUM}.so"
 scp -i $SSH_KEY -o StrictHostKeyChecking=no "$PATCH_FILE" $VPS_USER@$VPS_HOST:"$REMOTE_DIR/patch_${PATCH_NUM}.bin"
 
-echo "==> Step 4: Updating server manifest for $APP_NAME to Patch #$PATCH_NUM..."
+echo "==> Step 5: Updating server manifest for $APP_NAME to Patch #$PATCH_NUM..."
 ssh -i $SSH_KEY -o StrictHostKeyChecking=no $VPS_USER@$VPS_HOST "python3 -c \"
 path = '/opt/infortts/projects/mitochondria/bot/forensics_dashboard.py'
 import re
@@ -67,17 +71,18 @@ with open(path, 'r') as f:
 c = re.sub(r'\\\"latestPatch\\\":\s*\d+', '\\\"latestPatch\\\": $PATCH_NUM', c)
 c = re.sub(r'\\\"latest_version\\\":\s*\\\"[^\\\"]+\\\"', '\\\"latest_version\\\": \\\"$CANONICAL_VER\\\"', c)
 c = re.sub(r'\\\"latest_build\\\":\s*\d+', '\\\"latest_build\\\": $BUILD_CODE', c)
-c = re.sub(r'patch_\d+\.so', 'patch_$PATCH_NUM.so', c)
+c = re.sub(r'patch_\d+\.bin', 'patch_$PATCH_NUM.bin', c)
 
 with open(path, 'w') as f:
     f.write(c)
 
 import subprocess
-subprocess.run('fuser -k 8007/tcp || true', shell=True)
-subprocess.Popen(['nohup', 'python3', path], cwd='/opt/infortts/projects/mitochondria/bot')
+subprocess.run('sudo systemctl restart infortts-forensics.service', shell=True)
 \""
 
 echo "======================================================================"
 echo " SUCCESS! Patch #$PATCH_NUM ($CANONICAL_VER+$BUILD_CODE) for [$APP_NAME] is live!"
-echo " CDN URL: https://update.infortts.site/patches/$APP_NAME/v$BASE_VER/patch_${PATCH_NUM}.so"
+echo " Primary CDN (HF): https://huggingface.co/datasets/infortts/ota-patches/resolve/main/$APP_NAME/v$BASE_VER/patch_${PATCH_NUM}.bin"
+echo " Fallback CDN:    https://update.infortts.site/patches/$APP_NAME/v$BASE_VER/patch_${PATCH_NUM}.bin"
 echo "======================================================================"
+

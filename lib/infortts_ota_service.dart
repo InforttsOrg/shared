@@ -133,13 +133,55 @@ class InforttsOtaService {
   /// Candidate manifest endpoints fallback chain
   List<String> _getCandidateUrls(String version) {
     final baseVer = _getBaseVersion(version);
+    final parts = version.split('.');
+    final unpaddedBase = parts.length >= 3 ? '${parts[0]}.${int.tryParse(parts[1]) ?? 2}.00' : version;
     return [
+      'https://update.infortts.site/patches/$_appName/v$version/manifest.json',
       'https://update.infortts.site/patches/$_appName/v$baseVer/manifest.json',
+      'https://update.infortts.site/patches/$_appName/v$unpaddedBase/manifest.json',
+      'https://update.infortts.site/$_appName/v$version/manifest.json',
       'https://update.infortts.site/$_appName/v$baseVer/manifest.json',
+      'https://update.infortts.site/$_appName/v$unpaddedBase/manifest.json',
       'https://forensics.infortts.site/api/v1/ota/check?app=$_appName&version=$baseVer',
       'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$_appName/manifest.json',
       'https://huggingface.co/datasets/infortts/ota-patches/raw/main/$_appName/v$baseVer/manifest.json',
     ];
+  }
+
+  /// Check if candidate version is newer than current version
+  static bool isNewerVersion(String candidate, String current) {
+    if (candidate.isEmpty) return false;
+    final cleanCurrent = current.split('+').first;
+    final cleanCandidate = candidate.split('+').first;
+    final c = cleanCurrent.split('.').map((s) {
+      final digits = s.replaceAll(RegExp(r'[^0-9]'), '');
+      return digits.isEmpty ? 0 : int.tryParse(digits) ?? 0;
+    }).toList();
+    final n = cleanCandidate.split('.').map((s) {
+      final digits = s.replaceAll(RegExp(r'[^0-9]'), '');
+      return digits.isEmpty ? 0 : int.tryParse(digits) ?? 0;
+    }).toList();
+
+    for (var i = 0; i < 3; i++) {
+      final nv = i < n.length ? n[i] : 0;
+      final cv = i < c.length ? c[i] : 0;
+      if (nv != cv) return nv > cv;
+    }
+
+    int currentBuild = 0;
+    int candidateBuild = 0;
+    if (current.contains('+')) {
+      final raw = current.split('+').last.replaceAll(RegExp(r'[^0-9]'), '');
+      currentBuild = int.tryParse(raw) ?? 0;
+    }
+    if (candidate.contains('+')) {
+      final raw = candidate.split('+').last.replaceAll(RegExp(r'[^0-9]'), '');
+      candidateBuild = int.tryParse(raw) ?? 0;
+    }
+    if (candidateBuild != currentBuild) {
+      return candidateBuild > currentBuild;
+    }
+    return false;
   }
 
   /// Check server/CDN for available updates
@@ -187,9 +229,14 @@ class InforttsOtaService {
       return telemetryNotifier.value;
     }
 
-    final isNewerPatch = manifest.latestPatch > 0 && manifest.latestBuild > currentBuild;
-    final isNewerBuild = manifest.latestBuild > currentBuild;
-    final isUpdateAvailable = isNewerPatch || isNewerBuild;
+    final prefs = await SharedPreferences.getInstance();
+    final baseVer = _getBaseVersion(currentVersion);
+    final currentLocalPatch = prefs.getInt('infortts_ota_patch_${_appName}_$baseVer') ?? 0;
+
+    final isNewerPatch = manifest.latestPatch > currentLocalPatch;
+    final isNewerBuild = manifest.latestBuild > 0 && manifest.latestBuild > currentBuild;
+    final isNewerVer = isNewerVersion(manifest.version, currentVersion);
+    final isUpdateAvailable = isNewerPatch || isNewerBuild || isNewerVer;
 
     final updatedTelemetry = InforttsOtaTelemetry(
       appName: _appName,

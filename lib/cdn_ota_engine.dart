@@ -94,7 +94,7 @@ enum InforttsCdnOtaStatus {
   error,
 }
 
-/// Standalone, Zero-Shorebird Custom OTA Engine for Infortts Apps
+/// Standalone Custom OTA Engine for Infortts Apps (self-hosted CDN distribution)
 class InforttsCdnOtaEngine {
   static const String defaultCdnBaseUrl = 'https://update.infortts.site/patches';
   static const String prefsPatchKeyPrefix = 'infortts_ota_patch_';

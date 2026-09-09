@@ -1587,7 +1587,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                               padding: const EdgeInsets.symmetric(vertical: 9),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                             ),
-                            onPressed: () => _handleShorebirdCheck(context),
+                            onPressed: () => _handleCheckOtaUpdates(context),
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -1638,7 +1638,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     final releaseNotes = manifest?.releaseNotes ?? [
       "✓ Epoch 2 Custom CDN OTA Active",
       "✓ Real-Time Automated Background Update Cron",
-      "✓ Zero-Shorebird Sovereign Distribution Engine",
+      "✓ Sovereign Self-Hosted CDN Distribution Engine",
     ];
 
     if (!context.mounted) return;
@@ -1967,7 +1967,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     }
   }
 
-  Future<void> _handleShorebirdCheck(BuildContext context) async {
+  Future<void> _handleCheckOtaUpdates(BuildContext context) async {
     if (mounted) setState(() { _isCheckingOtaCron = true; });
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(
@@ -2016,42 +2016,6 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       }
     } finally {
       if (mounted) setState(() { _isCheckingOtaCron = false; });
-    }
-  }
-
-  Future<void> _downloadAndInstallShorebirdPatch(BuildContext context, ShorebirdUpdater updater) async {
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
-      SnackBar(
-        duration: const Duration(minutes: 2),
-        backgroundColor: AcousticColors.darkCarbon,
-        content: Row(
-          children: [
-            const SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2.0, valueColor: AlwaysStoppedAnimation<Color>(AcousticColors.sonarCyan)),
-            ),
-            const SizedBox(width: 10),
-            Text("Downloading & installing Infortts OTA patch...", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan, fontSize: 12)),
-          ],
-        ),
-      ),
-    );
-
-    try {
-      await updater.update();
-      messenger.clearSnackBars();
-      if (!context.mounted) return;
-      _showRestartDialog(context);
-    } catch (e) {
-      messenger.clearSnackBars();
-      messenger.showSnackBar(
-        SnackBar(
-          backgroundColor: Colors.red.shade900,
-          content: Text("Download error: $e. Updates will auto-apply on next app launch.", style: GoogleFonts.outfit(color: Colors.white)),
-        ),
-      );
     }
   }
 

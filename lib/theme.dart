@@ -19,6 +19,15 @@ class AcousticColors {
   static const Color sonarCyanDim = Color(0xFF005566);  // Idle/ambient shadow glow
   static const Color sonarBlue = Color(0xFF0066FF);     // Low-frequency active state
   static const Color warnOrange = Color(0xFFF97316);    // Low-saturation warning
+
+  // Light theme colors
+  static const Color lightBackground = Color(0xFFF8FAFC);   // Slate 50
+  static const Color lightSurface = Color(0xFFFFFFFF);      // White
+  static const Color lightSurfaceVariant = Color(0xFFF1F5F9); // Slate 100
+  static const Color lightOnBackground = Color(0xFF0F172A);  // Slate 900
+  static const Color lightOnSurface = Color(0xFF1E293B);     // Slate 800
+  static const Color lightOutline = Color(0xFFCBD5E1);       // Slate 300
+  static const Color lightOnSurfaceVariant = Color(0xFF475569); // Slate 600
 }
 
 /// The official, trademarked Infortts™ Acoustic-Refraction™ / Rocky-Vision™ Design Theme.
@@ -53,6 +62,47 @@ class AcousticTheme {
           ),
           bodyMedium: const TextStyle(
             color: AcousticColors.midGray,
+          ),
+        ),
+      ),
+    );
+  }
+
+  static ThemeData get lightTheme {
+    return ThemeData(
+      useMaterial3: true,
+      brightness: Brightness.light,
+      scaffoldBackgroundColor: AcousticColors.lightBackground,
+      colorScheme: const ColorScheme.light(
+        background: AcousticColors.lightBackground,
+        surface: AcousticColors.lightSurface,
+        surfaceContainerHighest: AcousticColors.lightSurfaceVariant,
+        primary: AcousticColors.sonarBlue,
+        secondary: AcousticColors.sonarCyan,
+        error: AcousticColors.warnOrange,
+        onBackground: AcousticColors.lightOnBackground,
+        onSurface: AcousticColors.lightOnSurface,
+        onSurfaceVariant: AcousticColors.lightOnSurfaceVariant,
+        outline: AcousticColors.lightOutline,
+      ),
+      textTheme: GoogleFonts.outfitTextTheme(
+        TextTheme(
+          displayLarge: TextStyle(
+            color: AcousticColors.lightOnBackground,
+            fontWeight: FontWeight.bold,
+            letterSpacing: -1.2,
+          ),
+          titleLarge: TextStyle(
+            color: AcousticColors.lightOnSurface,
+            fontWeight: FontWeight.bold,
+            letterSpacing: -0.5,
+          ),
+          bodyLarge: const TextStyle(
+            color: AcousticColors.lightOnSurfaceVariant,
+            letterSpacing: 0.1,
+          ),
+          bodyMedium: const TextStyle(
+            color: AcousticColors.lightOutline,
           ),
         ),
       ),

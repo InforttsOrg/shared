@@ -141,7 +141,7 @@
     },
     {
       "name": "flutter",
-      "rootUri": "file:///Users/admin/develop/flutter/packages/flutter",
+      "rootUri": "file:///Users/admin/fvm/versions/stable/packages/flutter",
       "packageUri": "lib/",
       "languageVersion": "3.11"
     },
@@ -159,13 +159,13 @@
     },
     {
       "name": "flutter_test",
-      "rootUri": "file:///Users/admin/develop/flutter/packages/flutter_test",
+      "rootUri": "file:///Users/admin/fvm/versions/stable/packages/flutter_test",
       "packageUri": "lib/",
       "languageVersion": "3.11"
     },
     {
       "name": "flutter_web_plugins",
-      "rootUri": "file:///Users/admin/develop/flutter/packages/flutter_web_plugins",
+      "rootUri": "file:///Users/admin/fvm/versions/stable/packages/flutter_web_plugins",
       "packageUri": "lib/",
       "languageVersion": "3.11"
     },
@@ -488,14 +488,8 @@
       "languageVersion": "3.5"
     },
     {
-      "name": "shorebird_code_push",
-      "rootUri": "file:///Users/admin/.agy-multi/agy2/.pub-cache/hosted/pub.dev/shorebird_code_push-2.0.7",
-      "packageUri": "lib/",
-      "languageVersion": "3.5"
-    },
-    {
       "name": "sky_engine",
-      "rootUri": "file:///Users/admin/develop/flutter/bin/cache/pkg/sky_engine",
+      "rootUri": "file:///Users/admin/fvm/versions/stable/bin/cache/pkg/sky_engine",
       "packageUri": "lib/",
       "languageVersion": "3.11"
     },
@@ -621,8 +615,8 @@
     }
   ],
   "generator": "pub",
-  "generatorVersion": "3.13.2",
-  "flutterRoot": "file:///Users/admin/develop/flutter",
-  "flutterVersion": "3.47.2",
+  "generatorVersion": "3.13.1",
+  "flutterRoot": "file:///Users/admin/fvm/versions/stable",
+  "flutterVersion": "3.47.1",
   "pubCache": "file:///Users/admin/.agy-multi/agy2/.pub-cache"
 }
