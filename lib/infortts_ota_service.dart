@@ -233,10 +233,17 @@ class InforttsOtaService {
     final baseVer = _getBaseVersion(currentVersion);
     final currentLocalPatch = prefs.getInt('infortts_ota_patch_${_appName}_$baseVer') ?? 0;
 
-    final isNewerPatch = manifest.latestPatch > currentLocalPatch;
-    final isNewerBuild = manifest.latestBuild > 0 && manifest.latestBuild > currentBuild;
-    final isNewerVer = isNewerVersion(manifest.version, currentVersion);
-    final isUpdateAvailable = isNewerPatch || isNewerBuild || isNewerVer;
+    final bool isUpdateAvailable;
+    if (manifest.latestPatch > 0) {
+      // Server is serving an OTA patch (e.g. Patch #58).
+      // Update is available ONLY IF server's latestPatch is strictly higher than our active local patch.
+      isUpdateAvailable = manifest.latestPatch > currentLocalPatch;
+    } else {
+      // Server manifest has no OTA patch (latestPatch == 0); check native build/version bump.
+      final isNewerBuild = manifest.latestBuild > 0 && manifest.latestBuild > currentBuild;
+      final isNewerVer = isNewerVersion(manifest.version, currentVersion);
+      isUpdateAvailable = isNewerBuild || isNewerVer;
+    }
 
     final updatedTelemetry = InforttsOtaTelemetry(
       appName: _appName,
@@ -273,6 +280,7 @@ class InforttsOtaService {
 
     try {
       final patchUrl = manifest?.patchUrl ?? current.downloadUrl;
+      final targetPatch = manifest?.latestPatch ?? current.latestPatch;
       if (patchUrl.isEmpty) {
         _updateState(state: InforttsOtaState.error, error: 'Empty patch download URL');
         return false;
@@ -287,14 +295,14 @@ class InforttsOtaService {
 
         // Decrypt binary payload if encrypted with Infortts cipher
         final decryptedBytes = InforttsOtaDecryptor.decrypt(res.bodyBytes);
-        final patchFile = File('${patchDir.path}/patch_${current.latestPatch}.so');
+        final patchFile = File('${patchDir.path}/patch_$targetPatch.so');
         await patchFile.writeAsBytes(decryptedBytes);
 
         final libAppFile = File('${patchDir.path}/libapp.so');
         await libAppFile.writeAsBytes(decryptedBytes);
 
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('infortts_ota_patch_${_appName}_$baseVer', current.latestPatch);
+        await prefs.setInt('infortts_ota_patch_${_appName}_$baseVer', targetPatch);
 
         _updateState(state: InforttsOtaState.readyToRestart);
         return true;
