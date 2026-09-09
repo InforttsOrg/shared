@@ -14,4 +14,6 @@ export 'logs.dart';
 export 'shorebird_manager.dart';
 export 'ota_engine.dart';
 export 'cdn_ota_engine.dart';
-
+export 'live_context.dart';
+export 'user_comms.dart';
+export 'infortts_ota_service.dart';
