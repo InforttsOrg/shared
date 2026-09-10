@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
+import 'env_config.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 
@@ -68,7 +69,7 @@ class InforttsDirectOtaEngine {
   factory InforttsDirectOtaEngine() => _instance;
   InforttsDirectOtaEngine._internal();
 
-  final String _endpointUrl = "https://forensics.infortts.site/api/v1/ota/check";
+  final String _endpointUrl = "$kForensicsApiBase/api/v1/ota/check";
 
   final ValueNotifier<DirectOtaInfo> otaNotifier = ValueNotifier<DirectOtaInfo>(
     DirectOtaInfo(
@@ -145,7 +146,7 @@ class InforttsDirectOtaEngine {
 
       // Fallback: Query primary Cloudflare CDN manifest
       try {
-        final cdnUrl = "https://update.infortts.site/patches/mitochondria/v$currentVersion/manifest.json";
+        final cdnUrl = "$kOtaCdnBase/mitochondria/v$currentVersion/manifest.json";
         final res = await http.get(Uri.parse(cdnUrl)).timeout(const Duration(seconds: 3));
         if (res.statusCode == 200) {
           final data = jsonDecode(res.body) as Map<String, dynamic>;

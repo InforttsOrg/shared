@@ -1,7 +1,6 @@
 library infortts_shared_auth;
 
 import 'dart:convert';
-import 'dart:html' if (dart.library.io) 'dart:io' show Cookie;
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -20,7 +19,7 @@ class AuthConfig {
         return override;
       }
     }
-    return 'https://uztmcltkadeasebfuabj.supabase.co';
+    return 'https://auth.infortts.site';
   }
 }
 
@@ -68,15 +67,12 @@ class GlycocalyxAuth {
     return h;
   }
 
-  /// Initiate OAuth login — returns the Supabase auth URL to redirect to.
+  /// Initiate OAuth login via the Glycocalyx gateway — returns the auth URL to redirect to.
   Future<String> login({
     String provider = 'google',
     String? redirect,
   }) async {
     final targetRedirect = redirect ?? config.effectiveBaseUrl;
-    if (_apiBase.contains('supabase.co')) {
-      return "$_apiBase/auth/v1/authorize?provider=$provider&redirect_to=${Uri.encodeComponent(targetRedirect)}";
-    }
     final resp = await _client.post(
       _uri('/auth/login'),
       headers: _headers(),
@@ -94,20 +90,6 @@ class GlycocalyxAuth {
 
   /// Validate session with a token and return session info.
   Future<AuthSession> session(String token) async {
-    if (_apiBase.contains('supabase.co')) {
-      final resp = await _client.get(
-        _uri('/auth/v1/user'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'apikey': const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6dG1jbHRrYWRlYXNlYmZ1YWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MjY5NTMsImV4cCI6MjA5MjMwMjk1M30.iAV3NfIzTx0CrxOKgid-3PKAgK1URhVqLGhZoZg5G-E'),
-        },
-      );
-      if (resp.statusCode != 200) {
-        return AuthSession(userId: '', email: '');
-      }
-      return AuthSession.fromJson(
-          jsonDecode(resp.body) as Map<String, dynamic>);
-    }
     final resp = await _client.get(
       _uri('/auth/session'),
       headers: _headers(token),
@@ -121,16 +103,6 @@ class GlycocalyxAuth {
 
   /// Logout — clear server-side session.
   Future<void> logout(String token) async {
-    if (_apiBase.contains('supabase.co')) {
-      await _client.post(
-        _uri('/auth/v1/logout'),
-        headers: {
-          'Authorization': 'Bearer $token',
-          'apikey': const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6dG1jbHRrYWRlYXNlYmZ1YWJqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY3MjY5NTMsImV4cCI6MjA5MjMwMjk1M30.iAV3NfIzTx0CrxOKgid-3PKAgK1URhVqLGhZoZg5G-E'),
-        },
-      );
-      return;
-    }
     await _client.post(
       _uri('/auth/logout'),
       headers: _headers(token),

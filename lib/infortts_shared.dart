@@ -7,6 +7,7 @@ export 'status.dart';
 export 'animations.dart';
 export 'brand.dart';
 export 'auth.dart';
+export 'env_config.dart';
 export 'shell.dart';
 export 'url_helper.dart';
 export 'error.dart';

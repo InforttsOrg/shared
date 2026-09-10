@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'env_config.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
@@ -136,13 +137,13 @@ class InforttsOtaService {
     final parts = version.split('.');
     final unpaddedBase = parts.length >= 3 ? '${parts[0]}.${int.tryParse(parts[1]) ?? 2}.00' : version;
     return [
-      'https://update.infortts.site/patches/$_appName/v$version/manifest.json',
-      'https://update.infortts.site/patches/$_appName/v$baseVer/manifest.json',
-      'https://update.infortts.site/patches/$_appName/v$unpaddedBase/manifest.json',
+      '$kOtaCdnBase/$_appName/v$version/manifest.json',
+      '$kOtaCdnBase/$_appName/v$baseVer/manifest.json',
+      '$kOtaCdnBase/$_appName/v$unpaddedBase/manifest.json',
       'https://update.infortts.site/$_appName/v$version/manifest.json',
       'https://update.infortts.site/$_appName/v$baseVer/manifest.json',
       'https://update.infortts.site/$_appName/v$unpaddedBase/manifest.json',
-      'https://forensics.infortts.site/api/v1/ota/check?app=$_appName&version=$baseVer',
+      '$kForensicsApiBase/api/v1/ota/check?app=$_appName&version=$baseVer',
       'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$_appName/manifest.json',
       'https://huggingface.co/datasets/infortts/ota-patches/raw/main/$_appName/v$baseVer/manifest.json',
     ];
@@ -446,7 +447,17 @@ class InforttsOtaBadge extends StatelessWidget {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close')),
-          if (telemetry.isUpdateAvailable)
+          if (telemetry.state == InforttsOtaState.readyToRestart)
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: () => exit(0),
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Restart App Now'),
+            )
+          else if (telemetry.isUpdateAvailable)
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(ctx);

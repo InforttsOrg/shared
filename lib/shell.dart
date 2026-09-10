@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io' show exit;
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'env_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -705,25 +706,22 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           profile = jsonDecode(profileStr);
         } catch (_) {}
       }
-      // If legacy placeholder profile was cached, upgrade it immediately
-      if (profile["display_name"] == "OPERATOR LOCAL" || email == "operator@infortts.site") {
-        profile = {
-          "display_name": "Sahil Rathee",
-          "username": "sahil_rathee",
-          "role": "Chief Architect / Quant Lead (Master Admin)",
-          "scope": "INFORTTS SWARM CLUSTER ADMIN",
-          "provider": "GOOGLE SSO / OAUTH",
-          "accounts_count": 5,
-        };
+      // Never restore a fabricated identity. Legacy placeholder sessions
+      // ("OPERATOR LOCAL" / "usr_operator_local" / "operator@infortts.site")
+      // are discarded so the user is prompted to sign in for real.
+      final isPlaceholder = userId == "usr_operator_local" ||
+          (profile["display_name"] as String?) == "OPERATOR LOCAL" ||
+          email == "operator@infortts.site";
+      if (!isPlaceholder) {
+        setState(() {
+          _isAuthenticated = true;
+          _authSession = AuthSession(
+            userId: userId,
+            email: email ?? '',
+            profile: profile,
+          );
+        });
       }
-      setState(() {
-        _isAuthenticated = true;
-        _authSession = AuthSession(
-          userId: userId == "usr_operator_local" ? "usr_sahil_master_001" : userId,
-          email: (email == null || email.isEmpty || email == "operator@infortts.site") ? "sahil.artits.rathee@gmail.com" : email,
-          profile: profile,
-        );
-      });
     }
 
     // Always attempt to synchronize latest profile data from API
@@ -803,44 +801,49 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       }
     } catch (_) {}
 
-    // Offline / Instant Local Bypass Fallback
-    setState(() {
-      _isAuthenticated = true;
-      _authSession = AuthSession(
-        userId: "usr_sahil_master_001",
-        email: "sahil.artits.rathee@gmail.com",
-        profile: {
-          "display_name": "Sahil Rathee",
-          "username": "sahil_rathee",
-          "role": "Chief Architect / Quant Lead (Master Admin)",
-          "scope": "INFORTTS SWARM CLUSTER ADMIN",
-          "provider": "GOOGLE SSO / OAUTH",
-          "accounts_count": 5,
-        },
+    // No offline identity fabrication. Surface the failure instead of
+    // silently impersonating a hardcoded account.
+    if (mounted) {
+      showErrorSnackBar(
+        context,
+        'Sign-in unavailable: Google OAuth is not configured for this build.',
       );
-    });
-    _saveSession(_authSession!);
-    _fetchLiveProfile();
+    }
   }
 
   Future<void> _fetchLiveProfile() async {
+    // Never reconcile the profile of a foreign account. If there is no
+    // authenticated session (or no email yet), there is nothing to merge.
+    final current = _authSession;
+    if (current == null || current.email.isEmpty) return;
+
     try {
-      final profileUrl = Uri.parse("https://forensics.infortts.site/api/user/profile");
+      final profileUrl = Uri.parse("$kForensicsApiBase/api/user/profile");
       final resp = await http.get(profileUrl).timeout(const Duration(seconds: 4));
       if (resp.statusCode == 200) {
         final data = jsonDecode(resp.body) as Map<String, dynamic>;
+        // Guard: only accept the payload if it belongs to the signed-in user.
+        final remoteEmail = (data['email'] as String?)?.trim().toLowerCase();
+        final localEmail = current.email.trim().toLowerCase();
+        if (remoteEmail == null || remoteEmail.isEmpty || remoteEmail != localEmail) {
+          return;
+        }
         if (mounted) {
           setState(() {
             _authSession = AuthSession(
-              userId: data['user_id'] ?? data['id'] ?? _authSession?.userId ?? "usr_sahil_master_001",
-              email: data['email'] ?? _authSession?.email ?? "sahil.artits.rathee@gmail.com",
+              userId: data['user_id'] ?? data['id'] ?? current.userId,
+              email: data['email'] ?? current.email,
               profile: {
-                "display_name": data['display_name'] ?? data['name'] ?? "Sahil Rathee",
-                "username": data['username'] ?? "sahil_rathee",
-                "role": data['role'] ?? "Chief Architect / Quant Lead (Master Admin)",
-                "scope": data['scope'] ?? "INFORTTS SWARM CLUSTER ADMIN",
-                "provider": data['provider'] ?? "GOOGLE SSO / OAUTH",
-                "accounts_count": data['accounts_count'] ?? 5,
+                ...?current.profile,
+                if (data['display_name'] != null) "display_name": data['display_name'],
+                if (data['name'] != null && data['display_name'] == null) "display_name": data['name'],
+                if (data['username'] != null) "username": data['username'],
+                if (data['role'] != null) "role": data['role'],
+                if (data['scope'] != null) "scope": data['scope'],
+                if (data['provider'] != null) "provider": data['provider'],
+                if (data['accounts_count'] != null) "accounts_count": data['accounts_count'],
+                if (data['account_providers'] != null) "account_providers": data['account_providers'],
+                if (data['photo_url'] != null) "photo_url": data['photo_url'],
               },
             );
           });
@@ -861,9 +864,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         if (prof != null && mounted) {
           setState(() {
             _authSession = AuthSession(
-              userId: prof['id'] ?? prof['user_id'] ?? _authSession?.userId ?? "usr_sahil_master_001",
-              email: prof['email'] ?? _authSession?.email ?? "sahil.artits.rathee@gmail.com",
-              profile: prof,
+              userId: prof['id'] ?? prof['user_id'] ?? current.userId,
+              email: (prof['email'] as String?) ?? current.email,
+              profile: {...?current.profile, ...prof},
             );
           });
           if (_authSession != null) {
@@ -905,6 +908,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               "display_name": (account.displayName?.isNotEmpty == true) ? account.displayName : account.email.split('@')[0].toUpperCase(),
               "username": account.email.split('@')[0],
               "photo_url": account.photoUrl,
+              "provider": "GOOGLE SSO / OAUTH",
             },
           );
         });
@@ -1272,6 +1276,16 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   }
 
   Widget _buildProfileView(BuildContext context) {
+    final session = _authSession;
+    final profile = session?.profile ?? const <String, dynamic>{};
+    final displayName = ((profile["display_name"] as String?)?.trim().isNotEmpty == true)
+        ? (profile["display_name"] as String).trim()
+        : "—";
+    final email = (session?.email ?? '').trim();
+    final role = (profile["role"] as String?)?.trim();
+    final provider = (profile["provider"] as String?)?.trim();
+    final scope = (profile["scope"] as String?)?.trim();
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
@@ -1293,7 +1307,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               ),
               const SizedBox(height: 8),
               Text(
-                "Current session authenticated via Glycocalyx OAuth service.",
+                email.isNotEmpty ? "Signed in as $email." : "No active session.",
                 style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray),
               ),
               const SizedBox(height: 24),
@@ -1303,7 +1317,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     radius: 28,
                     backgroundColor: AcousticColors.sonarCyan.withOpacity(0.15),
                     child: Text(
-                      "SR",
+                      _initialsFor(displayName, email),
                       style: GoogleFonts.outfit(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -1312,32 +1326,36 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     ),
                   ),
                   const SizedBox(width: 16),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _authSession?.profile?["display_name"] ?? "Sahil Rathee",
-                        style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AcousticColors.titanium),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        _authSession?.email ?? "sahil.artits.rathee@gmail.com",
-                        style: GoogleFonts.jetBrainsMono(fontSize: 10, color: AcousticColors.steel),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                        decoration: BoxDecoration(
-                          color: AcousticColors.sonarCyan.withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(color: AcousticColors.sonarCyan.withOpacity(0.4), width: 0.6),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          displayName,
+                          style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AcousticColors.titanium),
                         ),
-                        child: Text(
-                          _authSession?.profile?["role"] ?? "Chief Architect / Quant Lead",
-                          style: GoogleFonts.jetBrainsMono(fontSize: 8, color: AcousticColors.sonarCyan, fontWeight: FontWeight.bold),
+                        const SizedBox(height: 2),
+                        Text(
+                          email.isEmpty ? "Not signed in" : email,
+                          style: GoogleFonts.jetBrainsMono(fontSize: 10, color: AcousticColors.steel),
                         ),
-                      ),
-                    ],
+                        if (role != null && role.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AcousticColors.sonarCyan.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: AcousticColors.sonarCyan.withOpacity(0.4), width: 0.6),
+                            ),
+                            child: Text(
+                              role,
+                              style: GoogleFonts.jetBrainsMono(fontSize: 8, color: AcousticColors.sonarCyan, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -1351,15 +1369,13 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildProfileRow("USER ID", _authSession?.userId ?? "usr_sahil_master_001"),
+                    _buildProfileRow("USER ID", session?.userId ?? "—"),
                     const SizedBox(height: 8),
-                    _buildProfileRow("PROVIDER", _authSession?.profile?["provider"] ?? "GOOGLE SSO / OAUTH"),
+                    _buildProfileRow("PROVIDER", provider ?? "—"),
                     const SizedBox(height: 8),
-                    _buildProfileRow("SCOPE", _authSession?.profile?["scope"] ?? "INFORTTS SWARM CLUSTER ADMIN"),
+                    _buildProfileRow("SCOPE", scope ?? "—"),
                     const SizedBox(height: 8),
-                    _buildProfileRow("LINKED ACCOUNTS", "${_authSession?.profile?["accounts_count"] ?? 5} LIVE (FTMO, FUNDEDNEXT, XM, ELEFIN)"),
-                    const SizedBox(height: 8),
-                    _buildProfileRow("DATABASE SYNC", "LIVE (auth.infortts.site / forensics API)"),
+                    _buildProfileRow("LINKED ACCOUNTS", _linkedAccountsLabel(profile)),
                   ],
                 ),
               ),
@@ -1372,7 +1388,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 ),
                 child: Text(
-                  "SEVER LOGICAL CONNECTION",
+                  "SIGN OUT",
                   style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.warnOrange, fontWeight: FontWeight.bold, letterSpacing: 1.5),
                 ),
               ),
@@ -1382,6 +1398,41 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       ),
     ).animate().fadeIn(duration: 400.ms);
   }
+
+  String _linkedAccountsLabel(Map<String, dynamic> profile) {
+    final count = profile["accounts_count"];
+    final providers = profile["account_providers"];
+    if (count == null && providers == null) return "—";
+    if (providers is List && providers.isNotEmpty) {
+      return "${count ?? providers.length} LIVE (${providers.join(', ')})";
+    }
+    if (providers is String && providers.trim().isNotEmpty) {
+      return "${count ?? "?"} LIVE ($providers)";
+    }
+    if (count != null) {
+      return "$count LIVE ACCOUNT${count == 1 ? '' : 'S'}";
+    }
+    return "—";
+  }
+
+  String _initialsFor(String displayName, String email) {
+    final name = displayName.trim();
+    if (name.isNotEmpty && name != "—") {
+      final parts = name.split(RegExp(r'\s+'));
+      if (parts.length >= 2 && parts[0].isNotEmpty && parts[1].isNotEmpty) {
+        return (_firstRune(parts[0]) + _firstRune(parts[1])).toUpperCase();
+      }
+      return _firstRune(name).toUpperCase();
+    }
+    final prefix = email.split('@').first.trim();
+    if (prefix.isNotEmpty) {
+      final letters = prefix.runes.map(String.fromCharCode).toList();
+      return letters.take(2).join().toUpperCase();
+    }
+    return "?";
+  }
+
+  String _firstRune(String s) => s.isEmpty ? '' : String.fromCharCode(s.runes.first);
 
   Widget _buildProfileRow(String label, String value) {
     return Row(
@@ -1532,9 +1583,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     const SizedBox(height: 6),
                     _buildProfileRow("VECTOR DB", const String.fromEnvironment('VECTOR_DB_URL', defaultValue: 'qdrant://qdrant.infortts.site:6333')),
                     const SizedBox(height: 6),
-                    _buildProfileRow("FORENSICS API", const String.fromEnvironment('FORENSICS_API_URL', defaultValue: 'https://forensics.infortts.site/api/v1')),
+                    _buildProfileRow("FORENSICS API", '$kForensicsApiBase/api/v1'),
                     const SizedBox(height: 6),
-                    _buildProfileRow("OTA CDN", const String.fromEnvironment('OTA_CDN_URL', defaultValue: 'https://update.infortts.site/patches')),
+                    _buildProfileRow("OTA CDN", kOtaCdnBase),
                   ],
                 ),
               ),
