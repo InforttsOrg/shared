@@ -777,38 +777,20 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     }
   }
 
-  bool get _isDesktop => !kIsWeb && (defaultTargetPlatform == TargetPlatform.macOS || defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.linux);
-
-  void _handleDevBypassLogin() async {
-    try {
-      final resp = await http.post(
-        Uri.parse('${_authClient.config.effectiveBaseUrl}/auth/dev-login'),
-      ).timeout(const Duration(seconds: 4));
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body) as Map<String, dynamic>;
-        final token = data['token'] as String?;
-        if (token != null) {
-          final session = await _authClient.session(token);
-          if (session.authenticated) {
-            setState(() {
-              _isAuthenticated = true;
-              _authSession = session;
-            });
-            _saveSession(_authSession!);
-            return;
-          }
-        }
-      }
-    } catch (_) {}
-
-    // No offline identity fabrication. Surface the failure instead of
-    // silently impersonating a hardcoded account.
-    if (mounted) {
-      showErrorSnackBar(
-        context,
-        'Sign-in unavailable: Google OAuth is not configured for this build.',
+  void _enterGuestMode() {
+    setState(() {
+      _isAuthenticated = true;
+      _authSession = AuthSession(
+        userId: 'usr_guest',
+        email: '',
+        profile: {
+          "display_name": "GUEST",
+          "username": "guest",
+          "provider": "GUEST",
+        },
       );
-    }
+    });
+    _saveSession(_authSession!);
   }
 
   Future<void> _fetchLiveProfile() async {
@@ -892,33 +874,52 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       return;
     }
 
-    // Native Mobile (Android / iOS)
+// Native (Android / iOS / macOS): sign in with Google, then exchange the
+    // ID token at the gateway for a unified Glycocalyx JWT so native and web
+    // apps share one identity/token (no dev bypass — full production SSO).
     try {
-      final googleSignIn = GoogleSignIn(
-        scopes: ['email', 'profile'],
-      );
+      final googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
       final account = await googleSignIn.signIn();
-      if (account != null) {
-        setState(() {
-          _isAuthenticated = true;
-          _authSession = AuthSession(
-            userId: account.id,
-            email: account.email,
-            profile: {
-              "display_name": (account.displayName?.isNotEmpty == true) ? account.displayName : account.email.split('@')[0].toUpperCase(),
-              "username": account.email.split('@')[0],
-              "photo_url": account.photoUrl,
-              "provider": "GOOGLE SSO / OAUTH",
-            },
+      if (account == null) return; // user cancelled the picker
+
+      final auth = await account.authentication;
+      final idToken = auth.idToken;
+      final accessToken = auth.accessToken;
+      if ((idToken == null || idToken.isEmpty) && (accessToken == null || accessToken.isEmpty)) {
+        if (mounted) {
+          showErrorSnackBar(
+            context,
+            'Google returned no token. Configure the app with the Infortts web OAuth client '
+            '(default_web_client_id / GoogleService-Info) to complete SSO.',
           );
-        });
-        _saveSession(_authSession!);
+        }
         return;
       }
+
+      final data = await _authClient.loginWithGoogle(
+        idToken: idToken,
+        accessToken: accessToken,
+      );
+      final token = data['token'] as String?;
+      if (token == null || token.isEmpty) {
+        throw Exception('Gateway returned no session token');
+      }
+
+      final session = await _authClient.session(token);
+      if (!session.authenticated) {
+        throw Exception('Gateway rejected the session');
+      }
+
+      setState(() {
+        _isAuthenticated = true;
+        _authSession = session;
+      });
+      _saveSession(_authSession!);
     } catch (e) {
       debugPrint("Native Google Sign-In error: $e");
-      // If Play Services OAuth isn't configured with a client ID yet, fallback to instant bypass
-      _handleDevBypassLogin();
+      if (mounted) {
+        showErrorSnackBar(context, 'Sign in failed: $e');
+      }
     }
   }
 
@@ -1252,10 +1253,10 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 const SizedBox(height: 16),
                 OutlinedButton.icon(
                   onPressed: _handleGoogleSSO,
-                  icon: Icon(_isDesktop ? Icons.developer_mode : Icons.security, size: 16, color: AcousticColors.sonarCyan),
-                  label: Text(
-                    _isDesktop ? "DEV BYPASS LOGIN (LOCAL)" : "AUTHENTICATE WITH GOOGLE SSO",
-                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan, letterSpacing: 1.0),
+                  icon: const Icon(Icons.security, size: 16, color: AcousticColors.sonarCyan),
+                  label: const Text(
+                    "AUTHENTICATE WITH GOOGLE SSO",
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan, letterSpacing: 1.0),
                   ),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: AcousticColors.sonarCyan.withOpacity(0.3)),
@@ -1263,7 +1264,19 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: _enterGuestMode,
+                  style: TextButton.styleFrom(
+                    foregroundColor: AcousticColors.midGray,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                  ),
+                  child: Text(
+                    "CONTINUE AS GUEST",
+                    style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1.2),
+                  ),
+                ),
+                const SizedBox(height: 18),
                 const Center(
                   child: InforttsWatermark(size: 10.0),
                 ),

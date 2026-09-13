@@ -88,6 +88,28 @@ class GlycocalyxAuth {
     return data['auth_url'] as String;
   }
 
+  /// Native (mobile) Google sign-in: exchange a Google [idToken] for a unified
+  /// Glycocalyx JWT via the gateway, so native apps share one identity/token
+  /// with web apps. Returns the TokenResponse map (token/user_id/email/profile)
+  /// or throws on failure.
+  Future<Map<String, dynamic>> loginWithGoogle({
+    String? idToken,
+    String? accessToken,
+  }) async {
+    final resp = await _client.post(
+      _uri('/auth/google'),
+      headers: _headers(),
+      body: jsonEncode({
+        if (idToken != null && idToken.isNotEmpty) 'id_token': idToken,
+        if (accessToken != null && accessToken.isNotEmpty) 'access_token': accessToken,
+      }),
+    );
+    if (resp.statusCode != 200) {
+      throw Exception('Native Google login failed: ${resp.body}');
+    }
+    return jsonDecode(resp.body) as Map<String, dynamic>;
+  }
+
   /// Validate session with a token and return session info.
   Future<AuthSession> session(String token) async {
     final resp = await _client.get(
