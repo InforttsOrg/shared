@@ -12,3 +12,7 @@ String getCleanCurrentUrl() {
 void redirectUser(String url) {
   performRedirect(url);
 }
+
+void clearUrlToken() {
+  clearUrlTokenImpl();
+}

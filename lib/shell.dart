@@ -749,6 +749,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           });
           _saveSession(_authSession!);
         }
+        clearUrlToken();
       } catch (e) {
         debugPrint("Auth session check failed: $e");
       }
@@ -854,6 +855,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           if (_authSession != null) {
             _saveSession(_authSession!);
           }
+          clearUrlToken();
         }
       }
     } catch (_) {}

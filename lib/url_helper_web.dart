@@ -17,3 +17,13 @@ String getCurrentUrl() {
 void performRedirect(String url) {
   html.window.location.href = url;
 }
+
+/// Removes the `?token=` parameter from the address bar once the app has
+/// adopted it, so the JWT never lingers in the URL (history entries, shares).
+void clearUrlTokenImpl() {
+  final uri = Uri.parse(html.window.location.href);
+  if (!uri.queryParameters.containsKey('token')) return;
+  final params = Map<String, String>.from(uri.queryParameters)..remove('token');
+  final newUri = uri.replace(queryParameters: params.isEmpty ? null : params);
+  html.window.history.replaceState(<String, String>{}, '', newUri.toString());
+}

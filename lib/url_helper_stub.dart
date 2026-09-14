@@ -9,3 +9,7 @@ String getCurrentUrl() {
 void performRedirect(String url) {
   // No-op on native platforms
 }
+
+void clearUrlTokenImpl() {
+  // No-op on native platforms
+}
