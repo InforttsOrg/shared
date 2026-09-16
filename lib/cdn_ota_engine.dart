@@ -121,10 +121,18 @@ class InforttsCdnOtaEngine {
 
   /// Check CDN for available manifest & new patches with candidate URL fallbacks
   Future<InforttsOtaManifest?> fetchManifest() async {
+    final String appApiBase = (appName == 'glycocalyx')
+        ? kAuthBaseUrl
+        : (appName == 'meeseeks')
+            ? 'https://meeseeks.infortts.site'
+            : kForensicsApiBase;
+
     final candidateUrls = [
+      'https://update.infortts.site/patches/$appName/v$baseAppVersion/manifest.json',
       'https://update.infortts.site/manifests/$appName/v$baseAppVersion/manifest.json',
       'https://update.infortts.site/$appName/v$baseAppVersion/manifest.json',
-      '$kForensicsApiBase/api/v1/ota/check?app=$appName&version=$baseAppVersion',
+      '$appApiBase/api/v1/ota/check?app=$appName&version=$baseAppVersion',
+      '$appApiBase/api/ota/manifest?app=$appName',
       'https://update.infortts.site/ota_${appName}_v${baseAppVersion}_manifest.json',
       '$cdnBaseUrl/$appName/v$baseAppVersion/manifest.json',
       '$cdnBaseUrl/${appName}_v${baseAppVersion}_manifest.json',
@@ -152,12 +160,19 @@ class InforttsCdnOtaEngine {
     try {
       onStatusChanged?.call(InforttsCdnOtaStatus.downloading, manifest.latestPatch);
 
+      final String appApiBase = (appName == 'glycocalyx')
+          ? kAuthBaseUrl
+          : (appName == 'meeseeks')
+              ? 'https://meeseeks.infortts.site'
+              : kForensicsApiBase;
+
       final candidatePatchUrls = [
         if (manifest.patchUrl.isNotEmpty) manifest.patchUrl,
         '$kOtaCdnBase/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
         '$kOtaCdnBase/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.so',
+        'https://update.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
         'https://update.infortts.site/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
-        '$kForensicsApiBase/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
+        '$appApiBase/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
         '$cdnBaseUrl/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
       ];
 

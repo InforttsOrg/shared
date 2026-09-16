@@ -136,16 +136,22 @@ class InforttsOtaService {
     final baseVer = _getBaseVersion(version);
     final parts = version.split('.');
     final unpaddedBase = parts.length >= 3 ? '${parts[0]}.${int.tryParse(parts[1]) ?? 2}.00' : version;
+    final String appApiBase = (_appName == 'glycocalyx')
+        ? kAuthBaseUrl
+        : (_appName == 'meeseeks')
+            ? 'https://meeseeks.infortts.site'
+            : kForensicsApiBase;
+
     return [
       '$kOtaCdnBase/$_appName/v$version/manifest.json',
       '$kOtaCdnBase/$_appName/v$baseVer/manifest.json',
       '$kOtaCdnBase/$_appName/v$unpaddedBase/manifest.json',
+      'https://update.infortts.site/patches/$_appName/v$version/manifest.json',
+      'https://update.infortts.site/patches/$_appName/v$baseVer/manifest.json',
       'https://update.infortts.site/$_appName/v$version/manifest.json',
       'https://update.infortts.site/$_appName/v$baseVer/manifest.json',
-      'https://update.infortts.site/$_appName/v$unpaddedBase/manifest.json',
-      '$kForensicsApiBase/api/v1/ota/check?app=$_appName&version=$baseVer',
-      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$_appName/manifest.json',
-      'https://huggingface.co/datasets/infortts/ota-patches/raw/main/$_appName/v$baseVer/manifest.json',
+      '$appApiBase/api/v1/ota/check?app=$_appName&version=$baseVer',
+      '$appApiBase/api/ota/manifest?app=$_appName',
     ];
   }
 
