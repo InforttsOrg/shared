@@ -553,6 +553,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   bool _isAuthenticated = false;
   int _activeTab = 0;
   AuthSession? _authSession;
+  List<AuthSession> _savedAccounts = [];
   String _settingsSubPage = "main";
   late final GlycocalyxAuth _authClient;
   String _currentVersion = "";
@@ -705,6 +706,15 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     final email = prefs.getString('infortts_auth_email');
     final profileStr = prefs.getString('infortts_auth_profile');
 
+    // Load all saved accounts
+    final allAccountsStr = prefs.getString('infortts_all_saved_accounts');
+    if (allAccountsStr != null) {
+      try {
+        final list = jsonDecode(allAccountsStr) as List;
+        _savedAccounts = list.map((e) => AuthSession.fromJson(Map<String, dynamic>.from(e))).toList();
+      } catch (_) {}
+    }
+
     if (userId != null && userId.isNotEmpty) {
       Map<String, dynamic> profile = {};
       if (profileStr != null) {
@@ -712,21 +722,22 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           profile = jsonDecode(profileStr);
         } catch (_) {}
       }
-      // Never restore a fabricated identity. Legacy placeholder sessions
-      // ("OPERATOR LOCAL" / "usr_operator_local" / "operator@infortts.site")
-      // are discarded so the user is prompted to sign in for real.
       final isPlaceholder = userId == "usr_operator_local" ||
           (profile["display_name"] as String?) == "OPERATOR LOCAL" ||
           email == "operator@infortts.site";
       if (!isPlaceholder) {
+        final active = AuthSession(
+          userId: userId,
+          email: email ?? '',
+          profile: profile,
+        );
         setState(() {
           _isAuthenticated = true;
-          _authSession = AuthSession(
-            userId: userId,
-            email: email ?? '',
-            profile: profile,
-          );
+          _authSession = active;
         });
+        if (!_savedAccounts.any((a) => a.userId == active.userId)) {
+          _savedAccounts.insert(0, active);
+        }
       }
     }
 
@@ -740,6 +751,43 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     await prefs.setString('infortts_auth_email', session.email);
     if (session.profile != null) {
       await prefs.setString('infortts_auth_profile', jsonEncode(session.profile));
+    }
+
+    // Update multi-account registry
+    _savedAccounts.removeWhere((a) => a.userId == session.userId || (a.email.isNotEmpty && a.email == session.email));
+    _savedAccounts.insert(0, session);
+    await prefs.setString('infortts_all_saved_accounts', jsonEncode(_savedAccounts.map((a) => {
+      'user_id': a.userId,
+      'email': a.email,
+      'profile': a.profile,
+    }).toList()));
+    if (mounted) setState(() {});
+  }
+
+  void _switchAccount(AuthSession account) async {
+    setState(() {
+      _isAuthenticated = true;
+      _authSession = account;
+    });
+    _saveSession(account);
+  }
+
+  void _removeAccount(String userId) async {
+    _savedAccounts.removeWhere((a) => a.userId == userId);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('infortts_all_saved_accounts', jsonEncode(_savedAccounts.map((a) => {
+      'user_id': a.userId,
+      'email': a.email,
+      'profile': a.profile,
+    }).toList()));
+    if (_authSession?.userId == userId) {
+      if (_savedAccounts.isNotEmpty) {
+        _switchAccount(_savedAccounts.first);
+      } else {
+        _handleLogout();
+      }
+    } else {
+      if (mounted) setState(() {});
     }
   }
 
@@ -1273,6 +1321,76 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                   ),
                 ),
                 const SizedBox(height: 24),
+                if (_savedAccounts.isNotEmpty) ...[
+                  const SizedBox(height: 18),
+                  Text(
+                    "CHOOSE AN ACCOUNT",
+                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AcousticColors.sonarCyan),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AcousticColors.black.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AcousticColors.midGray.withOpacity(0.15)),
+                    ),
+                    child: Column(
+                      children: [
+                        for (final acc in _savedAccounts) ...[
+                          ListTile(
+                            dense: true,
+                            leading: CircleAvatar(
+                              radius: 12,
+                              backgroundColor: AcousticColors.sonarCyan.withOpacity(0.2),
+                              child: Text(
+                                _initialsFor(acc.profile?["display_name"] ?? '', acc.email),
+                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan),
+                              ),
+                            ),
+                            title: Text(
+                              (acc.profile?["display_name"] as String?) ?? acc.email.split('@')[0],
+                              style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.w600, color: AcousticColors.titanium),
+                            ),
+                            subtitle: Text(
+                              acc.email.isNotEmpty ? acc.email : "Local User",
+                              style: GoogleFonts.jetBrainsMono(fontSize: 8, color: AcousticColors.steel),
+                            ),
+                            trailing: const Icon(Icons.arrow_forward_ios, size: 10, color: AcousticColors.sonarCyan),
+                            onTap: () => _switchAccount(acc),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _handleGoogleSSO,
+                  icon: const Icon(Icons.security, size: 16, color: AcousticColors.sonarCyan),
+                  label: const Text(
+                    "CONTINUE WITH GOOGLE SSO",
+                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan, letterSpacing: 1.0),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: AcousticColors.sonarCyan, width: 0.9),
+                    backgroundColor: AcousticColors.sonarCyan.withOpacity(0.06),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(child: Divider(color: AcousticColors.midGray.withOpacity(0.2))),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Text("OR USE CREDENTIALS", style: GoogleFonts.outfit(fontSize: 8, color: AcousticColors.midGray, letterSpacing: 1.0)),
+                    ),
+                    Expanded(child: Divider(color: AcousticColors.midGray.withOpacity(0.2))),
+                  ],
+                ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: emailCtrl,
                   style: GoogleFonts.outfit(fontSize: 12, color: AcousticColors.titanium),
@@ -1285,13 +1403,13 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 10),
                 TextField(
                   controller: passCtrl,
                   obscureText: true,
                   style: GoogleFonts.outfit(fontSize: 12, color: AcousticColors.titanium),
                   decoration: InputDecoration(
-                    labelText: "DECRYPT KEY / PASSWORD",
+                    labelText: "PASSWORD",
                     labelStyle: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray),
                     filled: true,
                     fillColor: AcousticColors.black,
@@ -1299,7 +1417,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   ),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 ElevatedButton(
                   onPressed: () => _handleMockLogin(emailCtrl.text, passCtrl.text),
                   style: ElevatedButton.styleFrom(
@@ -1307,50 +1425,11 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     foregroundColor: AcousticColors.titanium,
                     side: const BorderSide(color: AcousticColors.sonarCyan, width: 0.8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    padding: const EdgeInsets.symmetric(vertical: 13),
                   ),
                   child: Text(
-                    "DECRYPT & SYNC WORKSPACE",
-                    style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: AcousticColors.midGray.withOpacity(0.2))),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: Text("OR", style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray)),
-                    ),
-                    Expanded(child: Divider(color: AcousticColors.midGray.withOpacity(0.2))),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                OutlinedButton.icon(
-                  onPressed: _handlePasskeyAuth,
-                  icon: const Icon(Icons.fingerprint, size: 16, color: AcousticColors.sonarCyan),
-                  label: const Text(
-                    "AUTHENTICATE WITH PASSKEY",
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan, letterSpacing: 1.0),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: AcousticColors.sonarCyan.withOpacity(0.5)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: _handleGoogleSSO,
-                  icon: const Icon(Icons.security, size: 16, color: AcousticColors.sonarCyan),
-                  label: const Text(
-                    "AUTHENTICATE WITH GOOGLE SSO",
-                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan, letterSpacing: 1.0),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: AcousticColors.sonarCyan.withOpacity(0.3)),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    "SIGN IN WITH PASSWORD",
+                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5),
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -1481,6 +1560,97 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                   ],
                 ),
               ),
+              const SizedBox(height: 24),
+              if (_savedAccounts.isNotEmpty) ...[
+                Text(
+                  "SWITCH / MANAGE ACCOUNTS",
+                  style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5, color: AcousticColors.sonarCyan),
+                ),
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  decoration: BoxDecoration(
+                    color: AcousticColors.black.withOpacity(0.4),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: AcousticColors.midGray.withOpacity(0.1)),
+                  ),
+                  child: Column(
+                    children: [
+                      for (final acc in _savedAccounts) ...[
+                        ListTile(
+                          dense: true,
+                          leading: CircleAvatar(
+                            radius: 14,
+                            backgroundColor: acc.userId == session?.userId
+                                ? AcousticColors.sonarCyan.withOpacity(0.2)
+                                : AcousticColors.midGray.withOpacity(0.1),
+                            child: Text(
+                              _initialsFor(acc.profile?["display_name"] ?? '', acc.email),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: acc.userId == session?.userId ? AcousticColors.sonarCyan : AcousticColors.steel,
+                              ),
+                            ),
+                          ),
+                          title: Text(
+                            (acc.profile?["display_name"] as String?) ?? acc.email.split('@')[0],
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: acc.userId == session?.userId ? AcousticColors.titanium : AcousticColors.steel,
+                            ),
+                          ),
+                          subtitle: Text(
+                            acc.email.isNotEmpty ? acc.email : "Local User",
+                            style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.midGray),
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (acc.userId == session?.userId)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AcousticColors.sonarCyan.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(4),
+                                  ),
+                                  child: const Text("ACTIVE", style: TextStyle(fontSize: 8, color: AcousticColors.sonarCyan, fontWeight: FontWeight.bold)),
+                                )
+                              else
+                                IconButton(
+                                  icon: const Icon(Icons.swap_horiz, size: 16, color: AcousticColors.sonarCyan),
+                                  tooltip: "Switch to this account",
+                                  onPressed: () => _switchAccount(acc),
+                                ),
+                              IconButton(
+                                icon: const Icon(Icons.close, size: 14, color: AcousticColors.midGray),
+                                tooltip: "Remove account",
+                                onPressed: () => _removeAccount(acc.userId),
+                              ),
+                            ],
+                          ),
+                          onTap: () => _switchAccount(acc),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _handleGoogleSSO,
+                  icon: const Icon(Icons.add, size: 14, color: AcousticColors.sonarCyan),
+                  label: const Text(
+                    "ADD ANOTHER ACCOUNT",
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan, letterSpacing: 1.0),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AcousticColors.sonarCyan.withOpacity(0.3)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                  ),
+                ),
+              ],
               const SizedBox(height: 32),
               OutlinedButton(
                 onPressed: _handleLogout,
@@ -1490,7 +1660,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 ),
                 child: Text(
-                  "SIGN OUT",
+                  "SIGN OUT ACTIVE ACCOUNT",
                   style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.warnOrange, fontWeight: FontWeight.bold, letterSpacing: 1.5),
                 ),
               ),
