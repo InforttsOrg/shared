@@ -13,6 +13,9 @@ import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+import 'package:app_links/app_links.dart';
+
 import 'theme.dart';
 import 'auth.dart';
 import 'brand.dart';
@@ -594,6 +597,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _restoreSession();
       _checkForUrlToken();
+      if (!kIsWeb) {
+        _initDeepLinks();
+      }
     });
   }
 
@@ -861,7 +867,43 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     } catch (_) {}
   }
 
+  void _initDeepLinks() async {
+    try {
+      final appLinks = AppLinks();
+      final initialUri = await appLinks.getInitialLink();
+      if (initialUri != null) {
+        _handleIncomingUri(initialUri);
+      }
+      appLinks.uriLinkStream.listen((uri) {
+        _handleIncomingUri(uri);
+      });
+    } catch (_) {}
+  }
+
+  void _handleIncomingUri(Uri uri) async {
+    final token = uri.queryParameters['token'];
+    if (token != null && token.isNotEmpty) {
+      final prof = await _authClient.profile(token);
+      if (prof != null && mounted) {
+        setState(() {
+          _isAuthenticated = true;
+          _authSession = AuthSession(
+            userId: prof['id'] ?? prof['user_id'] ?? '',
+            email: (prof['email'] as String?) ?? '',
+            profile: prof,
+          );
+        });
+        if (_authSession != null) {
+          _saveSession(_authSession!);
+        }
+      }
+    }
+  }
+
   void _handleGoogleSSO() async {
+    final appName = widget.appName.toLowerCase().replaceAll(' ', '');
+    final redirectScheme = '$appName://auth/callback';
+
     if (kIsWeb) {
       try {
         final redirectUrl = getCleanCurrentUrl();
@@ -876,11 +918,15 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       return;
     }
 
-// Native (Android / iOS / macOS): sign in with Google, then exchange the
+    // Native (Android / iOS / macOS): sign in with Google, then exchange the
     // ID token at the gateway for a unified Glycocalyx JWT so native and web
     // apps share one identity/token (no dev bypass — full production SSO).
     try {
-      final googleSignIn = GoogleSignIn(scopes: ['email', 'profile']);
+      final googleSignIn = GoogleSignIn(
+        serverClientId:
+            '92924706833-1hmtr9ftm6q57k4g18fteu7jov70a6fc.apps.googleusercontent.com',
+        scopes: ['email', 'profile'],
+      );
       final account = await googleSignIn.signIn();
       if (account == null) return; // user cancelled the picker
 
@@ -888,14 +934,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       final idToken = auth.idToken;
       final accessToken = auth.accessToken;
       if ((idToken == null || idToken.isEmpty) && (accessToken == null || accessToken.isEmpty)) {
-        if (mounted) {
-          showErrorSnackBar(
-            context,
-            'Google returned no token. Configure the app with the Infortts web OAuth client '
-            '(default_web_client_id / GoogleService-Info) to complete SSO.',
-          );
-        }
-        return;
+        throw Exception('Google returned no token');
       }
 
       final data = await _authClient.loginWithGoogle(
@@ -919,8 +958,42 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       _saveSession(_authSession!);
     } catch (e) {
       debugPrint("Native Google Sign-In error: $e");
+      // Resilient fallback to browser SSO gateway with deep link return
+      try {
+        final targetUrl = 'https://auth.infortts.site/auth/login?provider=google&redirect=${Uri.encodeComponent(redirectScheme)}';
+        final uri = Uri.parse(targetUrl);
+        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!launched) {
+          await launchUrl(uri);
+        }
+        return;
+      } catch (_) {}
+
       if (mounted) {
         showErrorSnackBar(context, 'Sign in failed: $e');
+      }
+    }
+  }
+
+  void _handlePasskeyAuth() async {
+    final appName = widget.appName.toLowerCase().replaceAll(' ', '');
+    final redirectScheme = '$appName://auth/callback';
+    final targetUrl = 'https://auth.infortts.site/auth/login?passkey=1&redirect=${Uri.encodeComponent(kIsWeb ? getCleanCurrentUrl() : redirectScheme)}';
+
+    if (kIsWeb) {
+      redirectUser(targetUrl);
+      return;
+    }
+
+    try {
+      final uri = Uri.parse(targetUrl);
+      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!ok) {
+        await launchUrl(uri);
+      }
+    } catch (e) {
+      if (mounted) {
+        showErrorSnackBar(context, 'Passkey authentication failed: $e');
       }
     }
   }
@@ -1253,6 +1326,20 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                   ],
                 ),
                 const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _handlePasskeyAuth,
+                  icon: const Icon(Icons.fingerprint, size: 16, color: AcousticColors.sonarCyan),
+                  label: const Text(
+                    "AUTHENTICATE WITH PASSKEY",
+                    style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan, letterSpacing: 1.0),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: AcousticColors.sonarCyan.withOpacity(0.5)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+                const SizedBox(height: 10),
                 OutlinedButton.icon(
                   onPressed: _handleGoogleSSO,
                   icon: const Icon(Icons.security, size: 16, color: AcousticColors.sonarCyan),
