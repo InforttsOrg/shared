@@ -74,7 +74,7 @@ def main():
         print("❌ Error: huggingface_hub package is required. Install via: pip3 install huggingface_hub")
         sys.exit(1)
 
-    token = args.token or "hf_PLACEHOLDER_TOKEN_STRING"
+    token = args.token or os.getenv("HF_TOKEN")
     api = HfApi(token=token)
     repo_id = "rttss/ota-patches"
 
