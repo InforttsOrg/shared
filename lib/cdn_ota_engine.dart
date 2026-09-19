@@ -140,7 +140,9 @@ class InforttsCdnOtaEngine {
 
     for (final manifestUrl in candidateUrls) {
       try {
-        final response = await http.get(Uri.parse(manifestUrl));
+        final response = await http
+            .get(Uri.parse(manifestUrl))
+            .timeout(const Duration(seconds: 4));
         if (response.statusCode == 200) {
           final Map<String, dynamic> data = jsonDecode(response.body);
           return InforttsOtaManifest.fromJson(data);
@@ -179,7 +181,9 @@ class InforttsCdnOtaEngine {
       http.Response? patchResponse;
       for (final url in candidatePatchUrls) {
         try {
-          final res = await http.get(Uri.parse(url));
+          final res = await http
+              .get(Uri.parse(url))
+              .timeout(const Duration(seconds: 6));
           if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
             patchResponse = res;
             break;
