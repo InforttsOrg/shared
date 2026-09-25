@@ -533,6 +533,9 @@ class InforttsAppShell extends StatefulWidget {
   final Widget workspaceChild;
   final List<InforttsTab>? additionalTabs;
   final GlycocalyxAuth? auth;
+  final List<Widget>? settingsSections;
+  final bool requireAuth;
+  final bool allowGuest;
 
   const InforttsAppShell({
     super.key,
@@ -542,6 +545,9 @@ class InforttsAppShell extends StatefulWidget {
     required this.workspaceChild,
     this.additionalTabs,
     this.auth,
+    this.settingsSections,
+    this.requireAuth = false,
+    this.allowGuest = true,
   });
 
   @override
@@ -570,6 +576,8 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   void dispose() {
     _otaCronTimer?.cancel();
     inforttsTabController.removeListener(_onTabChangedByController);
+    InforttsAuthManager.instance.sessionNotifier.removeListener(_onAuthSessionChanged);
+    InforttsAuthManager.instance.accountsNotifier.removeListener(_onAccountsChanged);
     super.dispose();
   }
 
@@ -579,9 +587,12 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     _currentVersion = widget.appVersion ?? "2.02.00";
     _currentBuildNumber = "20200";
     _initPackageInfo();
-    _authClient = widget.auth ?? GlycocalyxAuth();
+    _authClient = widget.auth ?? InforttsAuthManager.instance.api;
     inforttsTabController.value = 0;
     inforttsTabController.addListener(_onTabChangedByController);
+    InforttsAuthManager.instance.sessionNotifier.addListener(_onAuthSessionChanged);
+    InforttsAuthManager.instance.accountsNotifier.addListener(_onAccountsChanged);
+
     _tabs = [
       if (widget.additionalTabs != null)
         ...widget.additionalTabs!
@@ -596,12 +607,42 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       }
     });
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _restoreSession();
+      _initAuthManager();
       _checkForUrlToken();
       if (!kIsWeb) {
         _initDeepLinks();
       }
     });
+  }
+
+  void _onAuthSessionChanged() {
+    if (mounted) {
+      final current = InforttsAuthManager.instance.currentSession;
+      setState(() {
+        _authSession = current;
+        _isAuthenticated = current?.authenticated ?? false;
+      });
+    }
+  }
+
+  void _onAccountsChanged() {
+    if (mounted) {
+      setState(() {
+        _savedAccounts = InforttsAuthManager.instance.savedAccounts;
+      });
+    }
+  }
+
+  void _initAuthManager() async {
+    await InforttsAuthManager.instance.initialize(requireAuth: widget.requireAuth);
+    if (mounted) {
+      final current = InforttsAuthManager.instance.currentSession;
+      setState(() {
+        _authSession = current;
+        _isAuthenticated = current?.authenticated ?? false;
+        _savedAccounts = InforttsAuthManager.instance.savedAccounts;
+      });
+    }
   }
 
   Future<void> _initPackageInfo() async {
@@ -616,17 +657,23 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         appVersion: baseVersion,
       );
       final activePatchNum = await cdnEngine.getLocalPatchNumber();
-      final bump = InforttsVersionHelper.calculateBump(
-        baseVersion: baseVersion,
-        baseBuild: baseBuild,
-        patchNumber: activePatchNum,
-      );
+      final activePatchFile = await cdnEngine.getActivePatchFile();
+      final hasRealPatch = activePatchNum > 0 && activePatchFile != null;
+      final bump = hasRealPatch
+          ? InforttsVersionHelper.calculateBump(
+              baseVersion: baseVersion,
+              baseBuild: baseBuild,
+              patchNumber: activePatchNum,
+            )
+          : null;
 
       if (mounted) {
         setState(() {
-          _currentVersion = bump.version;
-          _currentBuildNumber = bump.buildNumber.toString();
-          _otaPatchText = bump.displayString;
+          _currentVersion = hasRealPatch && bump != null ? bump.version : rawVersion;
+          _currentBuildNumber = (hasRealPatch && bump != null)
+              ? bump.buildNumber.toString()
+              : (info.buildNumber.isNotEmpty ? info.buildNumber : "$baseBuild");
+          _otaPatchText = bump?.displayString ?? 'v$rawVersion [Base Release]';
         });
       }
       _startOtaCronTimer();
@@ -678,7 +725,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   }
 
   Widget _buildFlashingOtaIcon() {
-    final icon = const Icon(
+    final icon = Icon(
       Icons.sensors_rounded,
       size: 14,
       color: AcousticColors.sonarCyan,
@@ -701,94 +748,19 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   }
 
   void _restoreSession() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userId = prefs.getString('infortts_auth_userId');
-    final email = prefs.getString('infortts_auth_email');
-    final profileStr = prefs.getString('infortts_auth_profile');
-
-    // Load all saved accounts
-    final allAccountsStr = prefs.getString('infortts_all_saved_accounts');
-    if (allAccountsStr != null) {
-      try {
-        final list = jsonDecode(allAccountsStr) as List;
-        _savedAccounts = list.map((e) => AuthSession.fromJson(Map<String, dynamic>.from(e))).toList();
-      } catch (_) {}
-    }
-
-    if (userId != null && userId.isNotEmpty) {
-      Map<String, dynamic> profile = {};
-      if (profileStr != null) {
-        try {
-          profile = jsonDecode(profileStr);
-        } catch (_) {}
-      }
-      final isPlaceholder = userId == "usr_operator_local" ||
-          (profile["display_name"] as String?) == "OPERATOR LOCAL" ||
-          email == "operator@infortts.site";
-      if (!isPlaceholder) {
-        final active = AuthSession(
-          userId: userId,
-          email: email ?? '',
-          profile: profile,
-        );
-        setState(() {
-          _isAuthenticated = true;
-          _authSession = active;
-        });
-        if (!_savedAccounts.any((a) => a.userId == active.userId)) {
-          _savedAccounts.insert(0, active);
-        }
-      }
-    }
-
-    // Always attempt to synchronize latest profile data from API
-    _fetchLiveProfile();
+    _initAuthManager();
   }
 
   void _saveSession(AuthSession session) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('infortts_auth_userId', session.userId);
-    await prefs.setString('infortts_auth_email', session.email);
-    if (session.profile != null) {
-      await prefs.setString('infortts_auth_profile', jsonEncode(session.profile));
-    }
-
-    // Update multi-account registry
-    _savedAccounts.removeWhere((a) => a.userId == session.userId || (a.email.isNotEmpty && a.email == session.email));
-    _savedAccounts.insert(0, session);
-    await prefs.setString('infortts_all_saved_accounts', jsonEncode(_savedAccounts.map((a) => {
-      'user_id': a.userId,
-      'email': a.email,
-      'profile': a.profile,
-    }).toList()));
-    if (mounted) setState(() {});
+    await InforttsAuthManager.instance.saveSession(session);
   }
 
   void _switchAccount(AuthSession account) async {
-    setState(() {
-      _isAuthenticated = true;
-      _authSession = account;
-    });
-    _saveSession(account);
+    await InforttsAuthManager.instance.switchAccount(account);
   }
 
   void _removeAccount(String userId) async {
-    _savedAccounts.removeWhere((a) => a.userId == userId);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('infortts_all_saved_accounts', jsonEncode(_savedAccounts.map((a) => {
-      'user_id': a.userId,
-      'email': a.email,
-      'profile': a.profile,
-    }).toList()));
-    if (_authSession?.userId == userId) {
-      if (_savedAccounts.isNotEmpty) {
-        _switchAccount(_savedAccounts.first);
-      } else {
-        _handleLogout();
-      }
-    } else {
-      if (mounted) setState(() {});
-    }
+    await InforttsAuthManager.instance.removeAccount(userId);
   }
 
   void _checkForUrlToken() async {
@@ -797,11 +769,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       try {
         final session = await _authClient.session(token);
         if (session.authenticated) {
-          setState(() {
-            _isAuthenticated = true;
-            _authSession = session;
-          });
-          _saveSession(_authSession!);
+          await InforttsAuthManager.instance.saveSession(session);
         }
         clearUrlToken();
       } catch (e) {
@@ -818,101 +786,49 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     }
   }
 
-  void _handleMockLogin(String email, String password) {
-    if (email.isNotEmpty && password.length >= 6) {
-      setState(() {
-        _isAuthenticated = true;
-        _authSession = AuthSession(
-          userId: "usr_${DateTime.now().millisecondsSinceEpoch}",
-          email: email,
-          profile: {"display_name": email.split('@')[0].toUpperCase(), "username": email.split('@')[0]},
+  void _handleMockLogin(String email, String password) async {
+    if (email.trim().isEmpty) return;
+    try {
+      final session = await InforttsAuthManager.instance.signInWithPassword(email.trim(), password);
+      if (mounted) {
+        showTopSnackBar(
+          context,
+          title: "AUTHENTICATED",
+          message: "Signed in as ${session.displayName}",
+          icon: Icons.check_circle_outline,
+          color: AcousticColors.sonarCyan,
         );
-      });
-      _saveSession(_authSession!);
+      }
+    } catch (e) {
+      debugPrint("Password login failed, using local operator: $e");
+      final local = AuthSession(
+        userId: "usr_${DateTime.now().millisecondsSinceEpoch}",
+        email: email.trim(),
+        profile: {
+          "display_name": email.split('@')[0].toUpperCase(),
+          "username": email.split('@')[0],
+          "provider": "credentials",
+        },
+      );
+      await InforttsAuthManager.instance.saveSession(local);
+      if (mounted) {
+        showTopSnackBar(
+          context,
+          title: "AUTHENTICATED (LOCAL)",
+          message: "Signed in as ${local.displayName}",
+          icon: Icons.check_circle_outline,
+          color: AcousticColors.sonarCyan,
+        );
+      }
     }
   }
 
   void _enterGuestMode() {
-    setState(() {
-      _isAuthenticated = true;
-      _authSession = AuthSession(
-        userId: 'usr_guest',
-        email: '',
-        profile: {
-          "display_name": "GUEST",
-          "username": "guest",
-          "provider": "GUEST",
-        },
-      );
-    });
-    _saveSession(_authSession!);
+    InforttsAuthManager.instance.enterGuestMode();
   }
 
   Future<void> _fetchLiveProfile() async {
-    // Never reconcile the profile of a foreign account. If there is no
-    // authenticated session (or no email yet), there is nothing to merge.
-    final current = _authSession;
-    if (current == null || current.email.isEmpty) return;
-
-    try {
-      final profileUrl = Uri.parse("$kForensicsApiBase/api/user/profile");
-      final resp = await http.get(profileUrl).timeout(const Duration(seconds: 4));
-      if (resp.statusCode == 200) {
-        final data = jsonDecode(resp.body) as Map<String, dynamic>;
-        // Guard: only accept the payload if it belongs to the signed-in user.
-        final remoteEmail = (data['email'] as String?)?.trim().toLowerCase();
-        final localEmail = current.email.trim().toLowerCase();
-        if (remoteEmail == null || remoteEmail.isEmpty || remoteEmail != localEmail) {
-          return;
-        }
-        if (mounted) {
-          setState(() {
-            _authSession = AuthSession(
-              userId: data['user_id'] ?? data['id'] ?? current.userId,
-              email: data['email'] ?? current.email,
-              profile: {
-                ...?current.profile,
-                if (data['display_name'] != null) "display_name": data['display_name'],
-                if (data['name'] != null && data['display_name'] == null) "display_name": data['name'],
-                if (data['username'] != null) "username": data['username'],
-                if (data['role'] != null) "role": data['role'],
-                if (data['scope'] != null) "scope": data['scope'],
-                if (data['provider'] != null) "provider": data['provider'],
-                if (data['accounts_count'] != null) "accounts_count": data['accounts_count'],
-                if (data['account_providers'] != null) "account_providers": data['account_providers'],
-                if (data['photo_url'] != null) "photo_url": data['photo_url'],
-              },
-            );
-          });
-          if (_authSession != null) {
-            _saveSession(_authSession!);
-          }
-          return;
-        }
-      }
-    } catch (e) {
-      debugPrint("Live profile fetch error: $e");
-    }
-
-    try {
-      final token = getTokenFromUrl();
-      if (token != null && token.isNotEmpty) {
-        final prof = await _authClient.profile(token);
-        if (prof != null && mounted) {
-          setState(() {
-            _authSession = AuthSession(
-              userId: prof['id'] ?? prof['user_id'] ?? current.userId,
-              email: (prof['email'] as String?) ?? current.email,
-              profile: {...?current.profile, ...prof},
-            );
-          });
-          if (_authSession != null) {
-            _saveSession(_authSession!);
-          }
-          clearUrlToken();
-        }
-      }
-    } catch (_) {}
+    await InforttsAuthManager.instance.syncLiveProfile();
   }
 
   void _initDeepLinks() async {
@@ -933,25 +849,18 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     if (token != null && token.isNotEmpty) {
       final prof = await _authClient.profile(token);
       if (prof != null && mounted) {
-        setState(() {
-          _isAuthenticated = true;
-          _authSession = AuthSession(
-            userId: prof['id'] ?? prof['user_id'] ?? '',
-            email: (prof['email'] as String?) ?? '',
-            profile: prof,
-          );
-        });
-        if (_authSession != null) {
-          _saveSession(_authSession!);
-        }
+        final session = AuthSession(
+          userId: prof['id'] ?? prof['user_id'] ?? '',
+          email: (prof['email'] as String?) ?? '',
+          token: token,
+          profile: prof,
+        );
+        await InforttsAuthManager.instance.saveSession(session);
       }
     }
   }
 
   void _handleGoogleSSO() async {
-    final appName = widget.appName.toLowerCase().replaceAll(' ', '');
-    final redirectScheme = '$appName://auth/callback';
-
     if (kIsWeb) {
       try {
         final redirectUrl = getCleanCurrentUrl();
@@ -966,59 +875,27 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       return;
     }
 
-    // Native (Android / iOS / macOS): sign in with Google, then exchange the
-    // ID token at the gateway for a unified Glycocalyx JWT so native and web
-    // apps share one identity/token (no dev bypass — full production SSO).
+    // Native (Android / iOS / macOS): Native Google Sign-In with NO external browser redirects
     try {
-      final googleSignIn = GoogleSignIn(
-        serverClientId:
-            '92924706833-1hmtr9ftm6q57k4g18fteu7jov70a6fc.apps.googleusercontent.com',
-        scopes: ['email', 'profile'],
-      );
-      final account = await googleSignIn.signIn();
-      if (account == null) return; // user cancelled the picker
-
-      final auth = await account.authentication;
-      final idToken = auth.idToken;
-      final accessToken = auth.accessToken;
-      if ((idToken == null || idToken.isEmpty) && (accessToken == null || accessToken.isEmpty)) {
-        throw Exception('Google returned no token');
-      }
-
-      final data = await _authClient.loginWithGoogle(
-        idToken: idToken,
-        accessToken: accessToken,
-      );
-      final token = data['token'] as String?;
-      if (token == null || token.isEmpty) {
-        throw Exception('Gateway returned no session token');
-      }
-
-      final session = await _authClient.session(token);
-      if (!session.authenticated) {
-        throw Exception('Gateway rejected the session');
-      }
-
-      setState(() {
-        _isAuthenticated = true;
-        _authSession = session;
-      });
-      _saveSession(_authSession!);
-    } catch (e) {
-      debugPrint("Native Google Sign-In error: $e");
-      // Resilient fallback to browser SSO gateway with deep link return
-      try {
-        final targetUrl = 'https://auth.infortts.site/auth/login?provider=google&redirect=${Uri.encodeComponent(redirectScheme)}';
-        final uri = Uri.parse(targetUrl);
-        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
-        if (!launched) {
-          await launchUrl(uri);
-        }
+      final session = await InforttsAuthManager.instance.signInWithGoogleNative();
+      if (session == null) {
+        // User cancelled account picker
         return;
-      } catch (_) {}
+      }
 
       if (mounted) {
-        showErrorSnackBar(context, 'Sign in failed: $e');
+        showTopSnackBar(
+          context,
+          title: "AUTHENTICATED WITH GOOGLE",
+          message: "Signed in as ${session.displayName}",
+          icon: Icons.check_circle_outline,
+          color: AcousticColors.sonarCyan,
+        );
+      }
+    } catch (e) {
+      debugPrint("Native Google Sign-In error: $e");
+      if (mounted) {
+        showErrorSnackBar(context, 'Google Sign-In: ${e.toString().replaceAll('Exception: ', '')}');
       }
     }
   }
@@ -1034,10 +911,47 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     }
 
     try {
-      final uri = Uri.parse(targetUrl);
-      final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!ok) {
-        await launchUrl(uri);
+      final prefs = await SharedPreferences.getInstance();
+      final savedToken = prefs.getString('infortts_auth_token');
+      if (savedToken != null && savedToken.isNotEmpty) {
+        final profileStr = prefs.getString('infortts_auth_profile');
+        if (profileStr != null && profileStr.isNotEmpty) {
+          setState(() {
+            _isAuthenticated = true;
+          });
+          return;
+        }
+      }
+
+      // If no passkey session is stored on this device yet, prompt native dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: const Color(0xFF0D131C),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: const BorderSide(color: Color(0x3321E6D0)),
+            ),
+            title: const Row(
+              children: [
+                Icon(Icons.fingerprint, color: Color(0xFF21E6D0)),
+                SizedBox(width: 10),
+                Text('Native Passkey', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: const Text(
+              'No native passkey is saved on this device yet.\n\nPlease sign in with your email or Google account to register your biometric passkey.',
+              style: TextStyle(color: Color(0xFF8B9BAA), fontSize: 14, height: 1.5),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(ctx).pop(),
+                child: const Text('OK', style: TextStyle(color: Color(0xFF21E6D0), fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -1047,15 +961,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   }
 
   void _handleLogout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('infortts_auth_userId');
-    await prefs.remove('infortts_auth_email');
-    await prefs.remove('infortts_auth_profile');
-    setState(() {
-      _isAuthenticated = false;
-      _authSession = null;
-    });
-    inforttsTabController.value = 0;
+    await InforttsAuthManager.instance.signOut();
   }
 
   DateTime? _lastBackPressTime;
@@ -1100,7 +1006,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   @override
   Widget build(BuildContext context) {
     if (_showSplash) return _buildSplashView();
-    if (!_isAuthenticated) return _buildAuthView();
+    if (widget.requireAuth && (!_isAuthenticated || _authSession?.authenticated != true)) {
+      return _buildAuthView();
+    }
 
     return PopScope(
       canPop: false,
@@ -1344,7 +1252,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                               backgroundColor: AcousticColors.sonarCyan.withOpacity(0.2),
                               child: Text(
                                 _initialsFor(acc.profile?["display_name"] ?? '', acc.email),
-                                style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan),
+                                style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan),
                               ),
                             ),
                             title: Text(
@@ -1355,7 +1263,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                               acc.email.isNotEmpty ? acc.email : "Local User",
                               style: GoogleFonts.jetBrainsMono(fontSize: 8, color: AcousticColors.steel),
                             ),
-                            trailing: const Icon(Icons.arrow_forward_ios, size: 10, color: AcousticColors.sonarCyan),
+                            trailing: Icon(Icons.arrow_forward_ios, size: 10, color: AcousticColors.sonarCyan),
                             onTap: () => _switchAccount(acc),
                           ),
                         ],
@@ -1367,13 +1275,13 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: _handleGoogleSSO,
-                  icon: const Icon(Icons.security, size: 16, color: AcousticColors.sonarCyan),
-                  label: const Text(
+                  icon: Icon(Icons.security, size: 16, color: AcousticColors.sonarCyan),
+                  label: Text(
                     "CONTINUE WITH GOOGLE SSO",
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan, letterSpacing: 1.0),
                   ),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AcousticColors.sonarCyan, width: 0.9),
+                    side: BorderSide(color: AcousticColors.sonarCyan, width: 0.9),
                     backgroundColor: AcousticColors.sonarCyan.withOpacity(0.06),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     padding: const EdgeInsets.symmetric(vertical: 14),
@@ -1423,7 +1331,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AcousticColors.panelBg,
                     foregroundColor: AcousticColors.titanium,
-                    side: const BorderSide(color: AcousticColors.sonarCyan, width: 0.8),
+                    side: BorderSide(color: AcousticColors.sonarCyan, width: 0.8),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                     padding: const EdgeInsets.symmetric(vertical: 13),
                   ),
@@ -1615,16 +1523,16 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                                     color: AcousticColors.sonarCyan.withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(4),
                                   ),
-                                  child: const Text("ACTIVE", style: TextStyle(fontSize: 8, color: AcousticColors.sonarCyan, fontWeight: FontWeight.bold)),
+                                  child: Text("ACTIVE", style: TextStyle(fontSize: 8, color: AcousticColors.sonarCyan, fontWeight: FontWeight.bold)),
                                 )
                               else
                                 IconButton(
-                                  icon: const Icon(Icons.swap_horiz, size: 16, color: AcousticColors.sonarCyan),
+                                  icon: Icon(Icons.swap_horiz, size: 16, color: AcousticColors.sonarCyan),
                                   tooltip: "Switch to this account",
                                   onPressed: () => _switchAccount(acc),
                                 ),
                               IconButton(
-                                icon: const Icon(Icons.close, size: 14, color: AcousticColors.midGray),
+                                icon: Icon(Icons.close, size: 14, color: AcousticColors.midGray),
                                 tooltip: "Remove account",
                                 onPressed: () => _removeAccount(acc.userId),
                               ),
@@ -1639,8 +1547,8 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: _handleGoogleSSO,
-                  icon: const Icon(Icons.add, size: 14, color: AcousticColors.sonarCyan),
-                  label: const Text(
+                  icon: Icon(Icons.add, size: 14, color: AcousticColors.sonarCyan),
+                  label: Text(
                     "ADD ANOTHER ACCOUNT",
                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan, letterSpacing: 1.0),
                   ),
@@ -1655,7 +1563,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               OutlinedButton(
                 onPressed: _handleLogout,
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AcousticColors.warnOrange),
+                  side: BorderSide(color: AcousticColors.warnOrange),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                 ),
@@ -1710,8 +1618,24 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label, style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray, fontWeight: FontWeight.bold)),
-        Text(value, style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.steel)),
+        Flexible(
+          flex: 2,
+          child: Text(
+            label,
+            overflow: TextOverflow.ellipsis,
+            style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          flex: 3,
+          child: Text(
+            value,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: GoogleFonts.jetBrainsMono(fontSize: 9, color: AcousticColors.steel),
+          ),
+        ),
       ],
     );
   }
@@ -1726,7 +1650,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: AcousticColors.sonarCyan, size: 20),
+            icon: Icon(Icons.arrow_back, color: AcousticColors.sonarCyan, size: 20),
             onPressed: () => setState(() => _settingsSubPage = "main"),
           ),
           const SizedBox(width: 8),
@@ -1780,10 +1704,15 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    "SETTINGS & CONFIGURATION",
-                    style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 2.0, color: AcousticColors.titanium),
+                  Flexible(
+                    child: Text(
+                      "SETTINGS & CONFIGURATION",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.outfit(fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 2.0, color: AcousticColors.titanium),
+                    ),
                   ),
+                  const SizedBox(width: 8),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
@@ -1815,18 +1744,18 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 child: Column(
                   children: [
                     ListTile(
-                      leading: const Icon(Icons.person_outline, color: AcousticColors.sonarCyan, size: 20),
+                      leading: Icon(Icons.person_outline, color: AcousticColors.sonarCyan, size: 20),
                       title: Text("OPERATOR PROFILE", style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.titanium, fontWeight: FontWeight.bold)),
                       subtitle: Text("Centralized credentials & OAuth details", style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray)),
-                      trailing: const Icon(Icons.chevron_right, color: AcousticColors.steel, size: 18),
+                      trailing: Icon(Icons.chevron_right, color: AcousticColors.steel, size: 18),
                       onTap: () => setState(() => _settingsSubPage = "profile"),
                     ),
                     Divider(color: AcousticColors.midGray.withOpacity(0.15), height: 1),
                     ListTile(
-                      leading: const Icon(Icons.info_outline, color: AcousticColors.sonarCyan, size: 20),
+                      leading: Icon(Icons.info_outline, color: AcousticColors.sonarCyan, size: 20),
                       title: Text("ABOUT SYSTEM", style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.titanium, fontWeight: FontWeight.bold)),
                       subtitle: Text("Coded lifeform description & 3D emblem", style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray)),
-                      trailing: const Icon(Icons.chevron_right, color: AcousticColors.steel, size: 18),
+                      trailing: Icon(Icons.chevron_right, color: AcousticColors.steel, size: 18),
                       onTap: () => setState(() => _settingsSubPage = "about"),
                     ),
                   ],
@@ -1892,11 +1821,19 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                         children: [
                           Row(
                             children: [
-                              Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, fontSize: 11)),
-                              _buildFlashingOtaIcon(),
-                            ],
-                          ),
-                          Text(_otaPatchText, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, fontSize: 11)),
+                          _buildFlashingOtaIcon(),
+                        ],
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          _otaPatchText,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                          style: GoogleFonts.outfit(color: AcousticColors.titanium, fontWeight: FontWeight.bold, fontSize: 11),
+                        ),
+                      ),
                         ],
                       ),
                     ),
@@ -1914,10 +1851,15 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                const Icon(Icons.system_update_alt_rounded, size: 14, color: AcousticColors.sonarCyan),
+                                Icon(Icons.system_update_alt_rounded, size: 14, color: AcousticColors.sonarCyan),
                                 _buildFlashingOtaIcon(),
                                 const SizedBox(width: 4),
-                                Text("Check OTA Updates", style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan)),
+                                Flexible(
+                                  child: Text("Check OTA Updates",
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan)),
+                                ),
                               ],
                             ),
                           ),
@@ -1939,9 +1881,13 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                         ),
                       ],
                     ),
-                  ],
-                ),
+],
               ),
+            ),
+              if (widget.settingsSections != null) ...[
+                const SizedBox(height: 28),
+                ...widget.settingsSections!,
+              ],
             ],
           ),
         ),
@@ -1969,12 +1915,12 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: AcousticColors.darkCarbon,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: AcousticColors.sonarCyan, width: 1.2)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AcousticColors.sonarCyan, width: 1.2)),
         title: Row(
           children: [
-            const Icon(Icons.system_update_rounded, color: AcousticColors.sonarCyan, size: 22),
+            Icon(Icons.system_update_rounded, color: AcousticColors.sonarCyan, size: 22),
             const SizedBox(width: 8),
-            Text("Active Version & Patch Details", style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            Text("Active Version & Patch Details", style: GoogleFonts.outfit(color: AcousticColors.titanium, fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
         content: SingleChildScrollView(
@@ -1996,7 +1942,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.check_circle_outline, color: AcousticColors.sonarCyan, size: 14),
+                      Icon(Icons.check_circle_outline, color: AcousticColors.sonarCyan, size: 14),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -2033,7 +1979,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: GoogleFonts.outfit(color: AcousticColors.steel, fontSize: 11)),
-          Text(value, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11)),
+          Text(value, style: GoogleFonts.outfit(color: AcousticColors.titanium, fontWeight: FontWeight.bold, fontSize: 11)),
         ],
       ),
     );
@@ -2046,7 +1992,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: GoogleFonts.outfit(color: AcousticColors.steel, fontSize: 12)),
-          Text(value, style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12)),
+          Text(value, style: GoogleFonts.outfit(color: AcousticColors.titanium, fontWeight: FontWeight.bold, fontSize: 12)),
         ],
       ),
     );
@@ -2079,7 +2025,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 backgroundColor: AcousticColors.darkCarbon,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: AcousticColors.sonarCyan, width: 1.5),
+                  side: BorderSide(color: AcousticColors.sonarCyan, width: 1.5),
                 ),
                 title: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2092,7 +2038,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                             color: AcousticColors.sonarCyan.withOpacity(0.15),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.system_update_rounded,
                             color: AcousticColors.sonarCyan,
                             size: 24,
@@ -2106,7 +2052,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                               Text(
                                 "New OTA Patch Available",
                                 style: GoogleFonts.outfit(
-                                  color: Colors.white,
+                                  color: AcousticColors.titanium,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 17,
                                 ),
@@ -2124,7 +2070,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Divider(color: AcousticColors.midGray, height: 1),
+                    Divider(color: AcousticColors.midGray, height: 1),
                   ],
                 ),
                 content: SingleChildScrollView(
@@ -2154,7 +2100,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                       Text(
                         "Patch Details & Release Notes:",
                         style: GoogleFonts.outfit(
-                          color: Colors.white,
+                          color: AcousticColors.titanium,
                           fontWeight: FontWeight.w600,
                           fontSize: 13,
                         ),
@@ -2167,7 +2113,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Icon(Icons.check_circle_outline,
+                                Icon(Icons.check_circle_outline,
                                     color: AcousticColors.sonarCyan, size: 16),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -2197,7 +2143,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                         ),
                       if (isDownloading) ...[
                         const SizedBox(height: 16),
-                        const LinearProgressIndicator(
+                        LinearProgressIndicator(
                           backgroundColor: AcousticColors.panelBg,
                           color: AcousticColors.sonarCyan,
                         ),
@@ -2299,7 +2245,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         backgroundColor: AcousticColors.darkCarbon,
         content: Row(
           children: [
-            const SizedBox(
+            SizedBox(
               width: 14,
               height: 14,
               child: CircularProgressIndicator(strokeWidth: 2.0, valueColor: AlwaysStoppedAnimation<Color>(AcousticColors.sonarCyan)),
@@ -2347,12 +2293,12 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       context: context,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: AcousticColors.darkCarbon,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: AcousticColors.sonarCyan, width: 1.2)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: AcousticColors.sonarCyan, width: 1.2)),
         title: Row(
           children: [
-            const Icon(Icons.check_circle_outline_rounded, color: AcousticColors.sonarCyan, size: 22),
+            Icon(Icons.check_circle_outline_rounded, color: AcousticColors.sonarCyan, size: 22),
             const SizedBox(width: 8),
-            Text("Patch Installed!", style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+            Text("Patch Installed!", style: GoogleFonts.outfit(color: AcousticColors.titanium, fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
         content: Text(
@@ -2463,7 +2409,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        const Divider(color: AcousticColors.midGray, thickness: 0.5),
+                        Divider(color: AcousticColors.midGray, thickness: 0.5),
                         const SizedBox(height: 12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2538,7 +2484,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                               ),
                             ),
                             const SizedBox(height: 24),
-                            const Divider(color: AcousticColors.midGray, thickness: 0.5),
+                            Divider(color: AcousticColors.midGray, thickness: 0.5),
                             const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -2606,7 +2552,7 @@ void showTopSnackBar(
   required String message,
   String title = "SYSTEM ALERT",
   IconData icon = Icons.notifications_active_rounded,
-  Color color = AcousticColors.sonarCyan,
+  Color color = const Color(0xFF00D2FF),
   Duration duration = const Duration(seconds: 4),
 }) {
   final overlay = Overlay.maybeOf(context);
@@ -2743,7 +2689,7 @@ class _TopSnackBarOverlayWidgetState extends State<_TopSnackBarOverlayWidget> wi
                         widget.message,
                         style: GoogleFonts.outfit(
                           fontSize: 12,
-                          color: Colors.white,
+                          color: AcousticColors.titanium,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -2756,7 +2702,7 @@ class _TopSnackBarOverlayWidgetState extends State<_TopSnackBarOverlayWidget> wi
                       widget.onDismiss();
                     });
                   },
-                  child: const Padding(
+                  child: Padding(
                     padding: EdgeInsets.all(4.0),
                     child: Icon(Icons.close, size: 16, color: AcousticColors.steel),
                   ),
