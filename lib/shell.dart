@@ -1301,9 +1301,12 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 const SizedBox(height: 16),
                 TextField(
                   controller: emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
                   style: GoogleFonts.outfit(fontSize: 12, color: AcousticColors.titanium),
                   decoration: InputDecoration(
                     labelText: "EMAIL ADDRESS",
+                    hintText: "operator@infortts.com",
+                    hintStyle: GoogleFonts.outfit(fontSize: 12, color: AcousticColors.steel.withOpacity(0.5)),
                     labelStyle: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray),
                     filled: true,
                     fillColor: AcousticColors.black,
@@ -1318,6 +1321,8 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                   style: GoogleFonts.outfit(fontSize: 12, color: AcousticColors.titanium),
                   decoration: InputDecoration(
                     labelText: "PASSWORD",
+                    hintText: "••••••••",
+                    hintStyle: GoogleFonts.outfit(fontSize: 12, color: AcousticColors.steel.withOpacity(0.5)),
                     labelStyle: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray),
                     filled: true,
                     fillColor: AcousticColors.black,
