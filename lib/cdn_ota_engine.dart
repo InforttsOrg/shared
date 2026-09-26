@@ -38,10 +38,6 @@ class InforttsOtaManifest {
       patchNum = (json['latestPatch'] as num?)?.toInt() ?? 0;
     } else if (json.containsKey('latest_patch')) {
       patchNum = (json['latest_patch'] as num?)?.toInt() ?? 0;
-    } else if (json.containsKey('patch_code')) {
-      patchNum = (json['patch_code'] as num?)?.toInt() ?? 0;
-    } else if (json.containsKey('version_code')) {
-      patchNum = (json['version_code'] as num?)?.toInt() ?? 0;
     } else if (json.containsKey('patch') && json['patch'] is Map && (json['patch'] as Map).containsKey('patch_number')) {
       patchNum = ((json['patch'] as Map)['patch_number'] as num?)?.toInt() ?? 0;
     } else if (versionStr.isNotEmpty) {
@@ -50,6 +46,8 @@ class InforttsOtaManifest {
       if (parts.length >= 3) {
         patchNum = int.tryParse(parts[2]) ?? 0;
       }
+    } else if (json.containsKey('patch_code')) {
+      patchNum = (json['patch_code'] as num?)?.toInt() ?? 0;
     }
 
     int buildNum = 0;
@@ -62,8 +60,14 @@ class InforttsOtaManifest {
       buildNum = int.tryParse(raw) ?? 0;
     }
     if (buildNum == 0 && versionStr.isNotEmpty) {
-      final clean = versionStr.split('+').first.replaceAll('.', '');
-      buildNum = int.tryParse(clean) ?? 0;
+      final clean = versionStr.split('+').first;
+      final parts = clean.split('.');
+      if (parts.length >= 3) {
+        final ep = int.tryParse(parts[0]) ?? 2;
+        final maj = int.tryParse(parts[1]) ?? 6;
+        final min = int.tryParse(parts[2]) ?? 0;
+        buildNum = ep * 10000 + maj * 100 + min;
+      }
     }
 
     String rawUrl = json['patchUrl'] as String? ??

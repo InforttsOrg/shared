@@ -549,7 +549,7 @@ class InforttsAppShell extends StatefulWidget {
     this.settingsSections,
     this.requireAuth = false,
     this.allowGuest = true,
-    this.showSplash = true,
+    this.showSplash = false,
   });
 
   @override
@@ -557,7 +557,7 @@ class InforttsAppShell extends StatefulWidget {
 }
 
 class _InforttsAppShellState extends State<InforttsAppShell> {
-  bool _showSplash = true;
+  bool _showSplash = false;
   bool _isAuthenticated = false;
   int _activeTab = 0;
   AuthSession? _authSession;
@@ -566,7 +566,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   late final GlycocalyxAuth _authClient;
   String _currentVersion = "";
   String _currentBuildNumber = "";
-  String _otaPatchText = "v2.06.00+20600 (Infortts R2 CDN OTA Engine Active)";
+  String _otaPatchText = "v2.06.02+20602 (Infortts R2 CDN OTA Engine Active)";
   Timer? _otaCronTimer;
   bool _isCheckingOtaCron = false;
   bool _isOtaModalShowing = false;
@@ -587,8 +587,8 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   void initState() {
     super.initState();
     _showSplash = widget.showSplash;
-    _currentVersion = widget.appVersion ?? "2.06.00";
-    _currentBuildNumber = "20600";
+    _currentVersion = widget.appVersion ?? "2.06.02";
+    _currentBuildNumber = "20602";
     _initPackageInfo();
     _authClient = widget.auth ?? InforttsAuthManager.instance.api;
     inforttsTabController.value = 0;
@@ -605,7 +605,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       InforttsTab(label: "Settings", icon: Icons.settings_outlined, builder: (_) => _buildSettingsView()),
     ];
     if (widget.showSplash) {
-      Timer(const Duration(milliseconds: 1800), () {
+      Timer(const Duration(milliseconds: 1200), () {
         if (mounted) {
           setState(() { _showSplash = false; });
         }
@@ -703,9 +703,10 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         if (manifest.latestPatch > currentLocalPatch) {
           final success = await cdnEngine.downloadAndApplyPatch(manifest);
           if (success && mounted) {
+            final baseNum = int.tryParse(_currentBuildNumber) ?? 20600;
             final bump = InforttsVersionHelper.calculateBump(
               baseVersion: cdnEngine.baseAppVersion,
-              baseBuild: 20200,
+              baseBuild: baseNum,
               patchNumber: manifest.latestPatch,
             );
             setState(() {
@@ -1821,9 +1822,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                   children: [
                     _buildProfileRow("App", widget.appName),
                     const SizedBox(height: 6),
-                    _buildProfileRow("Version", _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.02.00')),
+                    _buildProfileRow("Version", _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.06.02')),
                     const SizedBox(height: 6),
-                    _buildProfileRow("Build", _currentBuildNumber.isNotEmpty ? "Build $_currentBuildNumber" : "Build 20200"),
+                    _buildProfileRow("Build", _currentBuildNumber.isNotEmpty ? "Build $_currentBuildNumber" : "Build 20602"),
                     const SizedBox(height: 6),
                     _buildProfileRow("Engine", "Flutter 3.29.0 / Dart 3.7.0"),
                     const SizedBox(height: 6),
@@ -2214,9 +2215,10 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
                         if (context.mounted) {
                           Navigator.of(dialogCtx).pop();
                           if (success) {
+                            final baseNum = int.tryParse(_currentBuildNumber) ?? 20600;
                             final bump = InforttsVersionHelper.calculateBump(
                               baseVersion: cdnEngine.baseAppVersion,
-                              baseBuild: 20200,
+                              baseBuild: baseNum,
                               patchNumber: manifest.latestPatch,
                             );
                             setState(() {
