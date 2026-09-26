@@ -10,6 +10,11 @@ class AcousticVolumetricCard extends StatelessWidget {
   final double? width;
   final double? height;
   final bool isSelected;
+  final String? appName;
+  final Color? accentColor;
+  final double borderRadius;
+  final Color? backgroundColor;
+  final EdgeInsetsGeometry? margin;
 
   const AcousticVolumetricCard({
     super.key,
@@ -18,34 +23,58 @@ class AcousticVolumetricCard extends StatelessWidget {
     this.width,
     this.height,
     this.isSelected = false,
+    this.appName,
+    this.accentColor,
+    this.borderRadius = 12.0,
+    this.backgroundColor,
+    this.margin,
   });
+
+  Color _resolveAccent() {
+    if (accentColor != null) return accentColor!;
+    final name = (appName ?? "").toLowerCase();
+    if (name.contains("mitochondria") || name.contains("forensic")) {
+      return AcousticColors.sonarCyan;
+    } else if (name.contains("yorgia")) {
+      return AcousticColors.sonarBlue;
+    } else if (name.contains("dickinsonia")) {
+      return const Color(0xFF8B5CF6);
+    } else if (name.contains("kimberella")) {
+      return const Color(0xFF10B981);
+    }
+    return AcousticColors.sonarCyan;
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final effectiveAccent = _resolveAccent();
+    final effectiveBg = backgroundColor ?? (isSelected ? AcousticColors.activeCard : AcousticColors.panelBg);
+
+    Widget cardWidget = Container(
       width: width,
       height: height,
+      margin: margin,
       decoration: BoxDecoration(
-        color: isSelected ? AcousticColors.activeCard : AcousticColors.panelBg,
-        borderRadius: BorderRadius.circular(12.0),
+        color: effectiveBg,
+        borderRadius: BorderRadius.circular(borderRadius),
         // Soft volumetric shadow glow (motivated light bloom)
         boxShadow: [
           BoxShadow(
             color: isSelected 
-                ? AcousticColors.sonarCyan.withOpacity(0.05) 
-                : Colors.black.withOpacity(0.3),
+                ? effectiveAccent.withOpacity(0.08) 
+                : Colors.black.withOpacity(0.35),
             blurRadius: isSelected ? 32.0 : 16.0,
             offset: const Offset(0, 10),
           ),
           // Subtle inner rim glow represented as a standard low-opacity glow
           BoxShadow(
-            color: AcousticColors.sonarCyan.withOpacity(isSelected ? 0.04 : 0.01),
+            color: effectiveAccent.withOpacity(isSelected ? 0.05 : 0.015),
             blurRadius: 12.0,
           ),
         ],
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(12.0),
+        borderRadius: BorderRadius.circular(borderRadius),
         child: Stack(
           children: [
             // Top-Right Motivated Practical Lighting Core (atmospheric gradient)
@@ -59,8 +88,8 @@ class AcousticVolumetricCard extends StatelessWidget {
                   shape: BoxShape.circle,
                   gradient: RadialGradient(
                     colors: [
-                      AcousticColors.sonarCyan.withOpacity(isSelected ? 0.08 : 0.03),
-                      AcousticColors.sonarCyan.withOpacity(0.0),
+                      effectiveAccent.withOpacity(isSelected ? 0.10 : 0.04),
+                      effectiveAccent.withOpacity(0.0),
                     ],
                   ),
                 ),
@@ -69,7 +98,11 @@ class AcousticVolumetricCard extends StatelessWidget {
             
             // Rim Border Simulator (1px high-contrast gradient overlay)
             CustomPaint(
-              painter: _RimBorderPainter(isSelected: isSelected),
+              painter: _RimBorderPainter(
+                isSelected: isSelected,
+                accentColor: effectiveAccent,
+                borderRadius: borderRadius,
+              ),
               child: Padding(
                 padding: EdgeInsets.all(padding),
                 child: child,
@@ -79,18 +112,26 @@ class AcousticVolumetricCard extends StatelessWidget {
         ),
       ),
     );
+
+    return cardWidget;
   }
 }
 
 class _RimBorderPainter extends CustomPainter {
   final bool isSelected;
+  final Color accentColor;
+  final double borderRadius;
 
-  _RimBorderPainter({required this.isSelected});
+  _RimBorderPainter({
+    required this.isSelected,
+    required this.accentColor,
+    required this.borderRadius,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    final rrect = RRect.fromRectAndRadius(rect, const Radius.circular(12.0));
+    final rrect = RRect.fromRectAndRadius(rect, Radius.circular(borderRadius));
     
     // Gradient is brightest at the upper-right (motivated rim-light source)
     final paint = Paint()
@@ -100,9 +141,9 @@ class _RimBorderPainter extends CustomPainter {
         begin: Alignment.topRight,
         end: Alignment.bottomLeft,
         colors: [
-          isSelected ? AcousticColors.sonarCyan.withOpacity(0.40) : Colors.white.withOpacity(0.12),
-          AcousticColors.sonarCyan.withOpacity(0.03),
-          Colors.black.withOpacity(0.90),
+          isSelected ? accentColor.withOpacity(0.50) : Colors.white.withOpacity(0.12),
+          accentColor.withOpacity(0.05),
+          Colors.black.withOpacity(0.85),
         ],
         stops: const [0.0, 0.45, 1.0],
       ).createShader(rect);
@@ -112,6 +153,8 @@ class _RimBorderPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _RimBorderPainter oldDelegate) {
-    return oldDelegate.isSelected != isSelected;
+    return oldDelegate.isSelected != isSelected ||
+        oldDelegate.accentColor != accentColor ||
+        oldDelegate.borderRadius != borderRadius;
   }
 }
