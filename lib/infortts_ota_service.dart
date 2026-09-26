@@ -143,6 +143,9 @@ class InforttsOtaService {
             : kForensicsApiBase;
 
     return [
+      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$_appName/manifest.json',
+      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$_appName/v$version/manifest.json',
+      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$_appName/v$baseVer/manifest.json',
       '$kOtaCdnBase/$_appName/v$version/manifest.json',
       '$kOtaCdnBase/$_appName/v$baseVer/manifest.json',
       '$kOtaCdnBase/$_appName/v$unpaddedBase/manifest.json',
@@ -431,7 +434,7 @@ class InforttsOtaBadge extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: Row(
           children: [
-            const Icon(Icons.system_update, color: AcousticColors.sonarCyan),
+            Icon(Icons.system_update, color: AcousticColors.sonarCyan),
             const SizedBox(width: 8),
             Text('${telemetry.appName.toUpperCase()} OTA Updater'),
           ],

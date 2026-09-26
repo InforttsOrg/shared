@@ -536,6 +536,7 @@ class InforttsAppShell extends StatefulWidget {
   final List<Widget>? settingsSections;
   final bool requireAuth;
   final bool allowGuest;
+  final bool showSplash;
 
   const InforttsAppShell({
     super.key,
@@ -548,6 +549,7 @@ class InforttsAppShell extends StatefulWidget {
     this.settingsSections,
     this.requireAuth = false,
     this.allowGuest = true,
+    this.showSplash = true,
   });
 
   @override
@@ -564,7 +566,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   late final GlycocalyxAuth _authClient;
   String _currentVersion = "";
   String _currentBuildNumber = "";
-  String _otaPatchText = "v2.02.00+20200 (Infortts R2 CDN OTA Engine Active [update.infortts.site])";
+  String _otaPatchText = "v2.06.00+20600 (Infortts R2 CDN OTA Engine Active)";
   Timer? _otaCronTimer;
   bool _isCheckingOtaCron = false;
   bool _isOtaModalShowing = false;
@@ -584,8 +586,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   @override
   void initState() {
     super.initState();
-    _currentVersion = widget.appVersion ?? "2.02.00";
-    _currentBuildNumber = "20200";
+    _showSplash = widget.showSplash;
+    _currentVersion = widget.appVersion ?? "2.06.00";
+    _currentBuildNumber = "20600";
     _initPackageInfo();
     _authClient = widget.auth ?? InforttsAuthManager.instance.api;
     inforttsTabController.value = 0;
@@ -601,11 +604,13 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       ],
       InforttsTab(label: "Settings", icon: Icons.settings_outlined, builder: (_) => _buildSettingsView()),
     ];
-    Timer(const Duration(milliseconds: 2600), () {
-      if (mounted) {
-        setState(() { _showSplash = false; });
-      }
-    });
+    if (widget.showSplash) {
+      Timer(const Duration(milliseconds: 1800), () {
+        if (mounted) {
+          setState(() { _showSplash = false; });
+        }
+      });
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initAuthManager();
       _checkForUrlToken();
@@ -648,9 +653,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   Future<void> _initPackageInfo() async {
     try {
       final info = await PackageInfo.fromPlatform();
-      final rawVersion = info.version.isNotEmpty ? info.version : (widget.appVersion ?? "2.02.00");
+      final rawVersion = info.version.isNotEmpty ? info.version : (widget.appVersion ?? "2.06.00");
       final baseVersion = InforttsVersionHelper.getBaseVersion(rawVersion);
-      const baseBuild = 20200;
+      final baseBuild = int.tryParse(info.buildNumber) ?? 20600;
 
       final cdnEngine = InforttsCdnOtaEngine(
         appName: widget.appName.toLowerCase(),
@@ -1159,7 +1164,12 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
-                    "v${_currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.02.00')}${_currentBuildNumber.isNotEmpty ? '+$_currentBuildNumber' : '+200'}",
+                    () {
+                      final v = _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.06.00');
+                      final b = _currentBuildNumber.isNotEmpty ? _currentBuildNumber : '20600';
+                      final formatted = v.contains('+') ? v : '$v+$b';
+                      return formatted.startsWith('v') ? formatted : 'v$formatted';
+                    }(),
                     style: GoogleFonts.jetBrainsMono(
                       fontSize: 9,
                       color: AcousticColors.sonarCyan,

@@ -28,32 +28,59 @@ class InforttsOtaManifest {
   });
 
   factory InforttsOtaManifest.fromJson(Map<String, dynamic> json) {
+    final versionStr = json['version'] as String? ??
+        json['latest_version'] as String? ??
+        json['version_name'] as String? ??
+        '';
+
     int patchNum = 0;
     if (json.containsKey('latestPatch')) {
       patchNum = (json['latestPatch'] as num?)?.toInt() ?? 0;
-    } else if (json.containsKey('latest_version')) {
-      final ver = json['latest_version'] as String? ?? '';
-      final parts = ver.split('.');
+    } else if (json.containsKey('latest_patch')) {
+      patchNum = (json['latest_patch'] as num?)?.toInt() ?? 0;
+    } else if (json.containsKey('patch_code')) {
+      patchNum = (json['patch_code'] as num?)?.toInt() ?? 0;
+    } else if (json.containsKey('version_code')) {
+      patchNum = (json['version_code'] as num?)?.toInt() ?? 0;
+    } else if (json.containsKey('patch') && json['patch'] is Map && (json['patch'] as Map).containsKey('patch_number')) {
+      patchNum = ((json['patch'] as Map)['patch_number'] as num?)?.toInt() ?? 0;
+    } else if (versionStr.isNotEmpty) {
+      final clean = versionStr.split('+').first;
+      final parts = clean.split('.');
       if (parts.length >= 3) {
         patchNum = int.tryParse(parts[2]) ?? 0;
       }
     }
-
-    final versionStr = json['version'] as String? ?? json['latest_version'] as String? ?? '';
 
     int buildNum = 0;
     if (json.containsKey('latestBuild')) {
       buildNum = (json['latestBuild'] as num?)?.toInt() ?? 0;
     } else if (json.containsKey('latest_build')) {
       buildNum = (json['latest_build'] as num?)?.toInt() ?? 0;
+    } else if (versionStr.contains('+')) {
+      final raw = versionStr.split('+').last.replaceAll(RegExp(r'[^0-9]'), '');
+      buildNum = int.tryParse(raw) ?? 0;
     }
     if (buildNum == 0 && versionStr.isNotEmpty) {
-      final clean = versionStr.replaceAll('.', '');
+      final clean = versionStr.split('+').first.replaceAll('.', '');
       buildNum = int.tryParse(clean) ?? 0;
     }
 
-    final rawUrl = json['patchUrl'] as String? ?? json['download_url'] as String? ?? '';
-    final updated = json['updatedAt'] as String? ?? json['published_at'] as String? ?? '';
+    String rawUrl = json['patchUrl'] as String? ??
+        json['download_url'] as String? ??
+        json['cdn_patch_url'] as String? ??
+        '';
+    if (rawUrl.isEmpty && json.containsKey('patch') && json['patch'] is Map) {
+      rawUrl = (json['patch'] as Map)['url'] as String? ?? '';
+    }
+    if (rawUrl.isEmpty) {
+      rawUrl = json['apk_url'] as String? ?? '';
+    }
+
+    final updated = json['updatedAt'] as String? ??
+        json['published_at'] as String? ??
+        json['timestamp_iso'] as String? ??
+        (json['updated_at'] != null ? json['updated_at'].toString() : '');
 
     List<String> notes = [];
     if (json['releaseNotes'] != null) {
@@ -62,8 +89,10 @@ class InforttsOtaManifest {
       notes = List<String>.from(json['release_notes']);
     }
 
+    final appSlug = json['app'] as String? ?? json['slug'] as String? ?? '';
+
     return InforttsOtaManifest(
-      app: json['app'] as String? ?? '',
+      app: appSlug,
       version: versionStr,
       latestPatch: patchNum,
       latestBuild: buildNum,
@@ -128,6 +157,9 @@ class InforttsCdnOtaEngine {
             : kForensicsApiBase;
 
     final candidateUrls = [
+      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$appName/manifest.json',
+      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$appName/v$baseAppVersion/manifest.json',
+      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$appName/v$appVersion/manifest.json',
       'https://update.infortts.site/patches/$appName/v$baseAppVersion/manifest.json',
       'https://update.infortts.site/manifests/$appName/v$baseAppVersion/manifest.json',
       'https://update.infortts.site/$appName/v$baseAppVersion/manifest.json',

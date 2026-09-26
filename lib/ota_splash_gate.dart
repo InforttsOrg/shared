@@ -102,7 +102,7 @@ class _InforttsOtaSplashGateState extends State<InforttsOtaSplashGate>
       } catch (_) {
         if (mounted && _versionDisplay.isEmpty) {
           setState(() {
-            _versionDisplay = 'v2.03.16';
+            _versionDisplay = 'v2.06.00+20600';
           });
         }
       }
@@ -119,7 +119,7 @@ class _InforttsOtaSplashGateState extends State<InforttsOtaSplashGate>
 
       final engine = InforttsCdnOtaEngine(
         appName: widget.appName,
-        appVersion: widget.appVersion ?? '2.03.16',
+        appVersion: widget.appVersion ?? '2.06.00',
       );
 
       final manifest = await engine.fetchManifest().timeout(const Duration(seconds: 2));
