@@ -1782,11 +1782,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                   ],
                 ),
               ),
-              _buildSettingsToggle("LOCAL LLM OFFLINE COMPILER", true),
-              const SizedBox(height: 16),
-              _buildSettingsToggle("GLYCOCALYX AUTO-SYNC TOKEN", true),
-              const SizedBox(height: 16),
-              _buildSettingsToggle("HARDWARE ACCELERATED RENDER", true),
+
               const SizedBox(height: 28),
               Text(
                 "INFRASTRUCTURE DNS",
