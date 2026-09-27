@@ -49,6 +49,7 @@ class AcousticVolumetricCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final effectiveAccent = _resolveAccent();
     final effectiveBg = backgroundColor ?? (isSelected ? AcousticColors.activeCard : AcousticColors.panelBg);
+    final isLight = acousticBrightness.value == Brightness.light;
 
     Widget cardWidget = Container(
       width: width,
@@ -62,9 +63,9 @@ class AcousticVolumetricCard extends StatelessWidget {
           BoxShadow(
             color: isSelected 
                 ? effectiveAccent.withOpacity(0.08) 
-                : Colors.black.withOpacity(0.35),
+                : (isLight ? Colors.black.withOpacity(0.05) : Colors.black.withOpacity(0.35)),
             blurRadius: isSelected ? 32.0 : 16.0,
-            offset: const Offset(0, 10),
+            offset: const Offset(0, 8),
           ),
           // Subtle inner rim glow represented as a standard low-opacity glow
           BoxShadow(
@@ -132,19 +133,26 @@ class _RimBorderPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
     final rrect = RRect.fromRectAndRadius(rect, Radius.circular(borderRadius));
+    final isLight = acousticBrightness.value == Brightness.light;
     
     // Gradient is brightest at the upper-right (motivated rim-light source)
     final paint = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.2
+      ..strokeWidth = isLight ? 1.0 : 1.2
       ..shader = LinearGradient(
         begin: Alignment.topRight,
         end: Alignment.bottomLeft,
-        colors: [
-          isSelected ? accentColor.withOpacity(0.50) : Colors.white.withOpacity(0.12),
-          accentColor.withOpacity(0.05),
-          Colors.black.withOpacity(0.85),
-        ],
+        colors: isLight
+            ? [
+                isSelected ? accentColor.withOpacity(0.60) : AcousticColors.lightOutline.withOpacity(0.8),
+                accentColor.withOpacity(0.15),
+                AcousticColors.lightOutline.withOpacity(0.4),
+              ]
+            : [
+                isSelected ? accentColor.withOpacity(0.50) : Colors.white.withOpacity(0.12),
+                accentColor.withOpacity(0.05),
+                Colors.black.withOpacity(0.85),
+              ],
         stops: const [0.0, 0.45, 1.0],
       ).createShader(rect);
 

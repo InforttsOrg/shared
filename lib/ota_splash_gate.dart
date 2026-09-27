@@ -34,8 +34,8 @@ class InforttsOtaSplashGate extends StatefulWidget {
     this.appNameDisplay,
     this.subtitle,
     required this.child,
-    this.minDisplayDuration = const Duration(milliseconds: 1800),
-    this.maxTimeout = const Duration(milliseconds: 3500),
+    this.minDisplayDuration = Duration.zero,
+    this.maxTimeout = const Duration(milliseconds: 1500),
     this.onUpdateInstalled,
   });
 
@@ -48,7 +48,7 @@ class _InforttsOtaSplashGateState extends State<InforttsOtaSplashGate>
   late final AnimationController _pulseController;
   late final Animation<double> _pulseAnimation;
 
-  bool _isReady = false;
+  bool _isReady = true;
   String _statusText = 'INITIALIZING SYSTEM...';
   double _progressValue = 0.15;
   String _versionDisplay = '';
@@ -59,6 +59,7 @@ class _InforttsOtaSplashGateState extends State<InforttsOtaSplashGate>
   @override
   void initState() {
     super.initState();
+    _isReady = widget.minDisplayDuration == Duration.zero;
     _pulseController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),

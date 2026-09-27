@@ -587,8 +587,8 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   void initState() {
     super.initState();
     _showSplash = widget.showSplash;
-    _currentVersion = widget.appVersion ?? "2.06.02";
-    _currentBuildNumber = "20602";
+    _currentVersion = widget.appVersion ?? "2.06.03";
+    _currentBuildNumber = "20603";
     _initPackageInfo();
     _authClient = widget.auth ?? InforttsAuthManager.instance.api;
     inforttsTabController.value = 0;
@@ -1016,26 +1016,31 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       return _buildAuthView();
     }
 
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, result) {
-        if (didPop) return;
-        _handleAndroidBack();
-      },
-      child: Scaffold(
-        backgroundColor: AcousticColors.black,
-        body: Column(
-          children: [
-            Expanded(
-              child: SafeArea(
-                bottom: false,
-                child: _tabs[_activeTab].builder(context),
-              ),
+    return ValueListenableBuilder<Brightness>(
+      valueListenable: acousticBrightness,
+      builder: (context, brightness, _) {
+        return PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) {
+            if (didPop) return;
+            _handleAndroidBack();
+          },
+          child: Scaffold(
+            backgroundColor: AcousticColors.black,
+            body: Column(
+              children: [
+                Expanded(
+                  child: SafeArea(
+                    bottom: false,
+                    child: _tabs[_activeTab].builder(context),
+                  ),
+                ),
+                _buildBottomNav(),
+              ],
             ),
-            _buildBottomNav(),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
