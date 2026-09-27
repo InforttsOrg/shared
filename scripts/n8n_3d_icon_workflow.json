@@ -1,0 +1,69 @@
+[
+  {
+    "id": "infortts-3d-icon-pipeline",
+    "name": "Infortts 3D Icon Generation & Normalization Pipeline",
+    "nodes": [
+      {
+        "parameters": {
+          "httpMethod": "POST",
+          "path": "generate-3d-icon",
+          "options": {}
+        },
+        "name": "Webhook Trigger",
+        "type": "n8n-nodes-base.webhook",
+        "typeVersion": 1,
+        "position": [200, 300],
+        "id": "node-1"
+      },
+      {
+        "parameters": {
+          "jsCode": "const body = $input.item.json.body || $input.item.json;\nconst appName = (body.appName || 'newapp').toLowerCase().replace(/\\s+/g, '');\nconst concept = body.concept || 'autonomous swarm agent';\nconst prompt = `3D isometric icon emblem of ${appName} (${concept}), obsidian dark metallic titanium finish with raytraced specular highlights, emissive glowing cyan (#21e6d0) circuitry, studio lighting, octane render, floating 3D badge, pure solid white background, ultra-sharp 8k`;\nreturn [{ json: { appName, prompt } }];"
+        },
+        "name": "Construct Infortts 3D Prompt",
+        "type": "n8n-nodes-base.code",
+        "typeVersion": 2,
+        "position": [420, 300],
+        "id": "node-2"
+      },
+      {
+        "parameters": {
+          "command": "=/var/www/icon_engine_env/bin/python /var/www/scripts/process_icon.py /tmp/raw_{{ $json.appName }}.png /var/www/infortts/out/icons/{{ $json.appName }}.png && cp /var/www/infortts/out/icons/{{ $json.appName }}.png /var/www/waptia/icons/{{ $json.appName }}.png"
+        },
+        "name": "Run AI Normalization & Dead-Centering",
+        "type": "n8n-nodes-base.executeCommand",
+        "typeVersion": 1,
+        "position": [680, 300],
+        "id": "node-3"
+      },
+      {
+        "parameters": {
+          "chatId": "1888142090",
+          "text": "=✅ *New 3D Icon Generated & Normalized*\n\nApp: `{{ $json.appName }}`\nURL: `https://infortts.site/icons/{{ $json.appName }}.png`\nStatus: 1:1 512x512 Transparent PNG Live",
+          "additionalFields": {
+            "parse_mode": "Markdown"
+          }
+        },
+        "name": "Telegram Alert",
+        "type": "n8n-nodes-base.telegram",
+        "typeVersion": 1,
+        "position": [920, 300],
+        "id": "node-4"
+      }
+    ],
+    "connections": {
+      "Webhook Trigger": {
+        "main": [[{ "node": "Construct Infortts 3D Prompt", "type": "main", "index": 0 }]]
+      },
+      "Construct Infortts 3D Prompt": {
+        "main": [[{ "node": "Run AI Normalization & Dead-Centering", "type": "main", "index": 0 }]]
+      },
+      "Run AI Normalization & Dead-Centering": {
+        "main": [[{ "node": "Telegram Alert", "type": "main", "index": 0 }]]
+      }
+    },
+    "active": true,
+    "settings": {
+      "executionOrder": "v1"
+    }
+  }
+]

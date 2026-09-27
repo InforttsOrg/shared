@@ -12,6 +12,9 @@ class AcousticSelection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (Overlay.maybeOf(context) == null) {
+      return child;
+    }
     return SelectionArea(
       child: child,
     );

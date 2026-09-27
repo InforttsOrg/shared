@@ -10,11 +10,17 @@ final ValueNotifier<Brightness> acousticBrightness =
 
 /// The official, trademarked Infortts™ Acoustic-Refraction™ / Rocky-Vision™ Color Palette.
 class AcousticColors {
-  // ---- Dark source values (ACES Crushed Blacks & Carbon Base) ----
-  static const Color blackDark = Color(0xFF05070C);        // Deepest desaturated base
-  static const Color darkCarbonDark = Color(0xFF090D1A);   // Standard background
-  static const Color panelBgDark = Color(0xFF121B2D);      // Volumetric card fill
-  static const Color activeCardDark = Color(0xFF1D2A44);   // Highlighted panel base
+  // ---- ACES Crushed Blacks & Carbon Base ----
+  static const Color black = Color(0xFF05070C);        // Deepest desaturated base
+  static const Color darkCarbon = Color(0xFF090D1A);   // Standard background
+  static const Color panelBg = Color(0xFF121B2D);      // Volumetric card fill
+  static const Color activeCard = Color(0xFF1D2A44);   // Highlighted panel base
+
+  // ---- Dark aliases ----
+  static const Color blackDark = black;
+  static const Color darkCarbonDark = darkCarbon;
+  static const Color panelBgDark = panelBg;
+  static const Color activeCardDark = activeCard;
 
   // ---- Light source values ----
   static const Color blackLight = Color(0xFFF8FAFC);       // Slate 50
@@ -22,25 +28,13 @@ class AcousticColors {
   static const Color panelBgLight = Color(0xFFF1F5F9);     // Slate 100
   static const Color activeCardLight = Color(0xFFE2E8F0);  // Slate 200
 
-  static bool get _light =>
-      acousticBrightness.value == Brightness.light;
-
-  // ACES Crushed Blacks & Carbon Base (adaptive to theme mode)
-  static Color get black => _light ? blackLight : blackDark;
-  static Color get darkCarbon => _light ? darkCarbonLight : darkCarbonDark;
-  static Color get panelBg => _light ? panelBgLight : panelBgDark;
-  static Color get activeCard => _light ? activeCardLight : activeCardDark;
-
-  // Desaturated Midtones (Cool Slate) — keep midGray for borders/subtext both modes
+  // ---- Desaturated Midtones (Cool Slate) ----
   static const Color midGray = Color(0xFF64748B);       // Borders and subtext
-  static Color get steel =>
-      _light ? const Color(0xFF475569) : const Color(0xFF94A3B8); // Body copy (Slate 600 / Slate 400)
-  static Color get titanium =>
-      _light ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0); // High-contrast titles (Slate 800 / Slate 200)
+  static const Color steel = Color(0xFF94A3B8);         // Body copy (Slate 400)
+  static const Color titanium = Color(0xFFE2E8F0);      // High-contrast titles (Slate 200)
 
-  // Motivated Emissives (Acoustic Cyan & Warm Warnings)
-  static Color get sonarCyan =>
-      _light ? const Color(0xFF0066FF) : const Color(0xFF00D2FF); // Active state (blue for contrast on light)
+  // ---- Motivated Emissives (Acoustic Cyan & Warm Warnings) ----
+  static const Color sonarCyan = Color(0xFF00D2FF);     // Active state
   static const Color sonarCyanDim = Color(0xFF005566);  // Idle/ambient shadow glow
   static const Color sonarBlue = Color(0xFF0066FF);     // Low-frequency active state
   static const Color warnOrange = Color(0xFFF97316);    // Low-saturation warning
