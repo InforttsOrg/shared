@@ -57,7 +57,7 @@ cat <<EOF > "$TMP_MANIFEST"
   "version": "$VERSION",
   "latestPatch": $PATCH_NUM,
   "updatedAt": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
-  "patchUrl": "https://ota.infortts.site/patches/$APP/v$VERSION/patch_$PATCH_NUM.bin"
+  "patchUrl": "https://update.infortts.site/patches/$APP/v$VERSION/patch_$PATCH_NUM.bin"
 }
 EOF
 
@@ -68,5 +68,5 @@ else
 fi
 
 echo "✅ OTA Patch #$PATCH_NUM for $APP published cleanly to Cloudflare R2!"
-echo "   Public Manifest URL: https://ota.infortts.site/patches/$APP/v$VERSION/manifest.json"
+echo "   Public Manifest URL: https://update.infortts.site/patches/$APP/v$VERSION/manifest.json"
 EOF
