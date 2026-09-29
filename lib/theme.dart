@@ -12,6 +12,7 @@ final ValueNotifier<Brightness> acousticBrightness =
 class AcousticColors {
   // ---- ACES Crushed Blacks & Carbon Base ----
   static const Color black = Color(0xFF05070C);        // Deepest desaturated base
+  static const Color obsidian = Color(0xFF0D1117);     // Obsidian surface base
   static const Color darkCarbon = Color(0xFF090D1A);   // Standard background
   static const Color panelBg = Color(0xFF121B2D);      // Volumetric card fill
   static const Color activeCard = Color(0xFF1D2A44);   // Highlighted panel base
