@@ -146,32 +146,40 @@ class InforttsCdnOtaEngine {
   /// Base version string (e.g. 2.02.00) normalized for persistent storage keys
   String get baseAppVersion => InforttsVersionHelper.getBaseVersion(appVersion);
 
+  /// Normalized slug for URLs and storage (e.g. "waptia by infortts" -> "waptia")
+  String get cleanAppName => appName.toLowerCase().replaceAll(' by infortts', '').replaceAll(' infortts', '').trim();
+
   /// Check local stored patch version for this app & baseAppVersion
   Future<int> getLocalPatchNumber() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt('$prefsPatchKeyPrefix${appName}_$baseAppVersion') ?? 0;
+    return prefs.getInt('$prefsPatchKeyPrefix${cleanAppName}_$baseAppVersion') ?? 0;
   }
 
   /// Check CDN for available manifest & new patches with candidate URL fallbacks
   Future<InforttsOtaManifest?> fetchManifest() async {
-    final String appApiBase = (appName == 'glycocalyx')
+    final clean = cleanAppName;
+    final String appApiBase = (clean == 'glycocalyx')
         ? kAuthBaseUrl
-        : (appName == 'meeseeks')
+        : (clean == 'meeseeks')
             ? 'https://meeseeks.infortts.site'
-            : kForensicsApiBase;
+            : (clean == 'waptia')
+                ? 'https://waptia.infortts.site'
+                : (clean == 'acritarch')
+                    ? 'https://docs.infortts.site'
+                    : kForensicsApiBase;
 
     final candidateUrls = [
-      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$appName/manifest.json',
-      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$appName/v$baseAppVersion/manifest.json',
-      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$appName/v$appVersion/manifest.json',
-      'https://update.infortts.site/patches/$appName/v$baseAppVersion/manifest.json',
-      'https://update.infortts.site/manifests/$appName/v$baseAppVersion/manifest.json',
-      'https://update.infortts.site/$appName/v$baseAppVersion/manifest.json',
-      '$appApiBase/api/v1/ota/check?app=$appName&version=$baseAppVersion',
-      '$appApiBase/api/ota/manifest?app=$appName',
-      'https://update.infortts.site/ota_${appName}_v${baseAppVersion}_manifest.json',
-      '$cdnBaseUrl/$appName/v$baseAppVersion/manifest.json',
-      '$cdnBaseUrl/${appName}_v${baseAppVersion}_manifest.json',
+      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$clean/manifest.json',
+      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$clean/v$baseAppVersion/manifest.json',
+      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$clean/v$appVersion/manifest.json',
+      'https://update.infortts.site/patches/$clean/v$baseAppVersion/manifest.json',
+      'https://update.infortts.site/manifests/$clean/v$baseAppVersion/manifest.json',
+      'https://update.infortts.site/$clean/v$baseAppVersion/manifest.json',
+      '$appApiBase/api/v1/ota/check?app=$clean&version=$baseAppVersion',
+      '$appApiBase/api/ota/manifest?app=$clean',
+      'https://update.infortts.site/ota_${clean}_v${baseAppVersion}_manifest.json',
+      '$cdnBaseUrl/$clean/v$baseAppVersion/manifest.json',
+      '$cdnBaseUrl/${clean}_v${baseAppVersion}_manifest.json',
     ];
 
     for (final manifestUrl in candidateUrls) {

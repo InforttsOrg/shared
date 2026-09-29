@@ -1801,7 +1801,22 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     const SizedBox(height: 6),
                     _buildProfileRow("VECTOR DB", const String.fromEnvironment('VECTOR_DB_URL', defaultValue: 'qdrant://qdrant.infortts.site:6333')),
                     const SizedBox(height: 6),
-                    _buildProfileRow("FORENSICS API", '$kForensicsApiBase/api/v1'),
+                    () {
+                      final app = widget.appName.toLowerCase().replaceAll(' by infortts', '').replaceAll(' infortts', '').trim();
+                      if (app == 'mitochondria') {
+                        return _buildProfileRow("FORENSICS API", '$kForensicsApiBase/api/v1');
+                      } else if (app == 'glycocalyx') {
+                        return _buildProfileRow("IDENTITY GATEWAY", 'https://auth.infortts.site');
+                      } else if (app == 'waptia') {
+                        return _buildProfileRow("STORE REGISTRY", 'https://waptia.infortts.site');
+                      } else if (app == 'acritarch') {
+                        return _buildProfileRow("DOCS HUB API", 'https://docs.infortts.site/api');
+                      } else if (app == 'meeseeks') {
+                        return _buildProfileRow("AGENT GATEWAY", 'https://meeseeks.infortts.site:8006');
+                      } else {
+                        return _buildProfileRow("API GATEWAY", 'https://$app.infortts.site/api');
+                      }
+                    }(),
                     const SizedBox(height: 6),
                     _buildProfileRow("OTA CDN", kOtaCdnBase),
                   ],
