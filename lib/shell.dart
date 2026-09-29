@@ -653,13 +653,13 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   Future<void> _initPackageInfo() async {
     try {
       final info = await PackageInfo.fromPlatform();
-      final rawVersion = info.version.isNotEmpty ? info.version : (widget.appVersion ?? "2.06.00");
+      final rawVersion = info.version.isNotEmpty ? info.version : (widget.appVersion ?? "1.0.0");
       final baseVersion = InforttsVersionHelper.getBaseVersion(rawVersion);
-      final baseBuild = int.tryParse(info.buildNumber) ?? 20600;
+      final baseBuild = int.tryParse(info.buildNumber) ?? 100;
 
-      final cdnEngine = InforttsCdnOtaEngine(
-        appName: widget.appName.toLowerCase(),
-        appVersion: baseVersion,
+      final cdnEngine = await InforttsCdnOtaEngine.fromPlatform(
+        fallbackAppName: widget.appName,
+        fallbackVersion: baseVersion,
       );
       final activePatchNum = await cdnEngine.getLocalPatchNumber();
       final activePatchFile = await cdnEngine.getActivePatchFile();
@@ -688,13 +688,13 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
 
   void _startOtaCronTimer() {
     _otaCronTimer?.cancel();
-    _otaCronTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+    _otaCronTimer = Timer.periodic(const Duration(seconds: 15), (_) async {
       if (!mounted || _isCheckingOtaCron || _isOtaModalShowing) return;
       if (mounted) setState(() { _isCheckingOtaCron = true; });
       try {
-        final cdnEngine = InforttsCdnOtaEngine(
-          appName: widget.appName.toLowerCase(),
-          appVersion: _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.02.00'),
+        final cdnEngine = await InforttsCdnOtaEngine.fromPlatform(
+          fallbackAppName: widget.appName,
+          fallbackVersion: _currentVersion.isNotEmpty ? _currentVersion : widget.appVersion,
         );
         final manifest = await cdnEngine.fetchManifest();
         if (manifest == null) return;
@@ -703,7 +703,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         if (manifest.latestPatch > currentLocalPatch) {
           final success = await cdnEngine.downloadAndApplyPatch(manifest);
           if (success && mounted) {
-            final baseNum = int.tryParse(_currentBuildNumber) ?? 20600;
+            final baseNum = int.tryParse(_currentBuildNumber) ?? 100;
             final bump = InforttsVersionHelper.calculateBump(
               baseVersion: cdnEngine.baseAppVersion,
               baseBuild: baseNum,
@@ -1928,9 +1928,9 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
   }
 
   Future<void> _showInstalledPatchDetailsModal(BuildContext context) async {
-    final cdnEngine = InforttsCdnOtaEngine(
-      appName: widget.appName.toLowerCase(),
-      appVersion: _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.02.00'),
+    final cdnEngine = await InforttsCdnOtaEngine.fromPlatform(
+      fallbackAppName: widget.appName,
+      fallbackVersion: _currentVersion.isNotEmpty ? _currentVersion : widget.appVersion,
     );
     final patchNum = await cdnEngine.getLocalPatchNumber();
     final manifest = await cdnEngine.fetchManifest();
@@ -2291,9 +2291,9 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
     );
 
     try {
-      final cdnEngine = InforttsCdnOtaEngine(
-        appName: widget.appName.toLowerCase(),
-        appVersion: _currentVersion.isNotEmpty ? _currentVersion : (widget.appVersion ?? '2.02.00'),
+      final cdnEngine = await InforttsCdnOtaEngine.fromPlatform(
+        fallbackAppName: widget.appName,
+        fallbackVersion: _currentVersion.isNotEmpty ? _currentVersion : widget.appVersion,
       );
 
       final manifest = await cdnEngine.fetchManifest();

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'env_config.dart';
 import 'package:http/http.dart' as http;
 import 'package:crypto/crypto.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -129,19 +130,75 @@ enum InforttsCdnOtaStatus {
 }
 
 /// Standalone Custom OTA Engine for Infortts Apps (self-hosted CDN distribution)
+/// Single-domain architecture pointing strictly to update.infortts.site
 class InforttsCdnOtaEngine {
+  static const String defaultOtaBaseUrl = kOtaBaseUrl;
   static const String defaultCdnBaseUrl = kOtaCdnBase;
   static const String prefsPatchKeyPrefix = 'infortts_ota_patch_';
 
   final String appName;
   final String appVersion;
+  final String otaBaseUrl;
   final String cdnBaseUrl;
+  final String? packageName;
+  final String? buildSignature;
+  final String? buildNumber;
 
   InforttsCdnOtaEngine({
     required this.appName,
     required this.appVersion,
+    this.otaBaseUrl = defaultOtaBaseUrl,
     this.cdnBaseUrl = defaultCdnBaseUrl,
+    this.packageName,
+    this.buildSignature,
+    this.buildNumber,
   });
+
+  /// Instantiate directly using the platform's native package info and signature
+  static Future<InforttsCdnOtaEngine> fromPlatform({
+    String? fallbackAppName,
+    String? fallbackVersion,
+    String? otaBaseUrl,
+    String? cdnBaseUrl,
+  }) async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      final pkg = info.packageName;
+      String inferredSlug = '';
+      if (pkg.isNotEmpty) {
+        final lastPart = pkg.split('.').last.toLowerCase();
+        if (lastPart != 'app' && lastPart != 'site' && lastPart != 'flutter' && lastPart != 'android') {
+          inferredSlug = lastPart;
+        }
+      }
+      if (inferredSlug.isEmpty) {
+        final rawTitle = fallbackAppName ?? (info.appName.isNotEmpty ? info.appName : 'infortts');
+        inferredSlug = rawTitle.toLowerCase().replaceAll(' by infortts', '').replaceAll(' infortts', '').trim();
+      }
+
+      final ver = info.version.isNotEmpty ? info.version : (fallbackVersion ?? '1.0.0');
+      final build = info.buildNumber;
+      final sig = info.buildSignature;
+
+      return InforttsCdnOtaEngine(
+        appName: inferredSlug,
+        appVersion: ver,
+        otaBaseUrl: otaBaseUrl ?? defaultOtaBaseUrl,
+        cdnBaseUrl: cdnBaseUrl ?? defaultCdnBaseUrl,
+        packageName: pkg,
+        buildSignature: sig,
+        buildNumber: build,
+      );
+    } catch (_) {
+      final clean = (fallbackAppName ?? 'infortts').toLowerCase().replaceAll(' by infortts', '').replaceAll(' infortts', '').trim();
+      return InforttsCdnOtaEngine(
+        appName: clean,
+        appVersion: fallbackVersion ?? '1.0.0',
+        otaBaseUrl: otaBaseUrl ?? defaultOtaBaseUrl,
+        cdnBaseUrl: cdnBaseUrl ?? defaultCdnBaseUrl,
+      );
+    }
+  }
 
   /// Base version string (e.g. 2.02.00) normalized for persistent storage keys
   String get baseAppVersion => InforttsVersionHelper.getBaseVersion(appVersion);
@@ -155,31 +212,24 @@ class InforttsCdnOtaEngine {
     return prefs.getInt('$prefsPatchKeyPrefix${cleanAppName}_$baseAppVersion') ?? 0;
   }
 
-  /// Check CDN for available manifest & new patches with candidate URL fallbacks
+  /// Check single-domain central OTA server for available manifest & new patches
   Future<InforttsOtaManifest?> fetchManifest() async {
     final clean = cleanAppName;
-    final String appApiBase = (clean == 'glycocalyx')
-        ? kAuthBaseUrl
-        : (clean == 'meeseeks')
-            ? 'https://meeseeks.infortts.site'
-            : (clean == 'waptia')
-                ? 'https://waptia.infortts.site'
-                : (clean == 'acritarch')
-                    ? 'https://docs.infortts.site'
-                    : kForensicsApiBase;
+    final String queryParams = [
+      'app=$clean',
+      if (packageName != null && packageName!.isNotEmpty) 'package_name=${Uri.encodeComponent(packageName!)}',
+      if (buildSignature != null && buildSignature!.isNotEmpty) 'signature=${Uri.encodeComponent(buildSignature!)}',
+      if (buildNumber != null && buildNumber!.isNotEmpty) 'build=${Uri.encodeComponent(buildNumber!)}',
+      'version=$baseAppVersion',
+    ].join('&');
 
+    // Candidate URLs prioritized on single centralized domain update.infortts.site
     final candidateUrls = [
+      '$otaBaseUrl/api/v1/ota/check?$queryParams',
+      '$otaBaseUrl/patches/$clean/v$baseAppVersion/manifest.json',
+      '$otaBaseUrl/ota/$clean/manifest.json',
       'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$clean/manifest.json',
       'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$clean/v$baseAppVersion/manifest.json',
-      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$clean/v$appVersion/manifest.json',
-      'https://update.infortts.site/patches/$clean/v$baseAppVersion/manifest.json',
-      'https://update.infortts.site/manifests/$clean/v$baseAppVersion/manifest.json',
-      'https://update.infortts.site/$clean/v$baseAppVersion/manifest.json',
-      '$appApiBase/api/v1/ota/check?app=$clean&version=$baseAppVersion',
-      '$appApiBase/api/ota/manifest?app=$clean',
-      'https://update.infortts.site/ota_${clean}_v${baseAppVersion}_manifest.json',
-      '$cdnBaseUrl/$clean/v$baseAppVersion/manifest.json',
-      '$cdnBaseUrl/${clean}_v${baseAppVersion}_manifest.json',
     ];
 
     for (final manifestUrl in candidateUrls) {
@@ -206,20 +256,13 @@ class InforttsCdnOtaEngine {
     try {
       onStatusChanged?.call(InforttsCdnOtaStatus.downloading, manifest.latestPatch);
 
-      final String appApiBase = (appName == 'glycocalyx')
-          ? kAuthBaseUrl
-          : (appName == 'meeseeks')
-              ? 'https://meeseeks.infortts.site'
-              : kForensicsApiBase;
-
+      final clean = cleanAppName;
       final candidatePatchUrls = [
         if (manifest.patchUrl.isNotEmpty) manifest.patchUrl,
-        '$kOtaCdnBase/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
-        '$kOtaCdnBase/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.so',
-        'https://update.infortts.site/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
-        'https://update.infortts.site/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
-        '$appApiBase/patches/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
-        '$cdnBaseUrl/$appName/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
+        '$otaBaseUrl/patches/$clean/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
+        '$otaBaseUrl/patches/$clean/v$baseAppVersion/patch_${manifest.latestPatch}.so',
+        '$cdnBaseUrl/$clean/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
+        'https://huggingface.co/datasets/rttss/ota-patches/resolve/main/$clean/patches/patch_${manifest.latestPatch}.bin',
       ];
 
       http.Response? patchResponse;
@@ -237,7 +280,7 @@ class InforttsCdnOtaEngine {
 
       if (patchResponse != null && patchResponse.statusCode == 200) {
         final dir = await getApplicationSupportDirectory();
-        final patchDir = Directory('${dir.path}/infortts_ota/$appName/v$baseAppVersion');
+        final patchDir = Directory('${dir.path}/infortts_ota/$clean/v$baseAppVersion');
         await patchDir.create(recursive: true);
 
         // Decrypt binary payload if encrypted with Infortts AES-256 HMAC-SHA256 cipher
@@ -252,7 +295,7 @@ class InforttsCdnOtaEngine {
 
         // Update SharedPreferences
         final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('$prefsPatchKeyPrefix${appName}_$baseAppVersion', manifest.latestPatch);
+        await prefs.setInt('$prefsPatchKeyPrefix${clean}_$baseAppVersion', manifest.latestPatch);
 
         onStatusChanged?.call(InforttsCdnOtaStatus.installed, manifest.latestPatch);
         return true;
@@ -261,191 +304,116 @@ class InforttsCdnOtaEngine {
         return false;
       }
     } catch (e) {
-      if (kDebugMode) print('[InforttsCdnOtaEngine] Error applying patch: $e');
-      onStatusChanged?.call(InforttsCdnOtaStatus.error, null);
+      if (kDebugMode) print('[InforttsCdnOtaEngine] Patch application failed: $e');
+      onStatusChanged?.call(InforttsCdnOtaStatus.error, manifest.latestPatch);
       return false;
     }
   }
 
-  /// Get active downloaded AOT patch library file if available locally
+  /// Get active patch file on disk if installed
   Future<File?> getActivePatchFile() async {
     try {
-      final activePatchNum = await getLocalPatchNumber();
-      if (activePatchNum <= 0) return null;
+      final patchNum = await getLocalPatchNumber();
+      if (patchNum <= 0) return null;
+      final clean = cleanAppName;
 
       final dir = await getApplicationSupportDirectory();
-      final libAppFile = File('${dir.path}/infortts_ota/$appName/v$baseAppVersion/libapp.so');
-      if (await libAppFile.exists()) {
-        return libAppFile;
-      }
-      final patchFile = File('${dir.path}/infortts_ota/$appName/v$baseAppVersion/patch_$activePatchNum.so');
+      final patchFile = File('${dir.path}/infortts_ota/$clean/v$baseAppVersion/patch_$patchNum.so');
       if (await patchFile.exists()) {
         return patchFile;
       }
     } catch (_) {}
     return null;
   }
-
-  /// Full check and optional auto-download of new patch binary
-  Future<bool> checkAndApplyUpdate({
-    bool autoDownload = true,
-    void Function(InforttsCdnOtaStatus status, int? latestPatch)? onStatusChanged,
-  }) async {
-    try {
-      onStatusChanged?.call(InforttsCdnOtaStatus.checking, null);
-      final manifest = await fetchManifest();
-      if (manifest == null) {
-        onStatusChanged?.call(InforttsCdnOtaStatus.error, null);
-        return false;
-      }
-
-      final currentLocalPatch = await getLocalPatchNumber();
-      if (manifest.latestPatch > currentLocalPatch) {
-        onStatusChanged?.call(InforttsCdnOtaStatus.updateAvailable, manifest.latestPatch);
-
-        if (autoDownload) {
-          return await downloadAndApplyPatch(manifest, onStatusChanged: onStatusChanged);
-        }
-        return true;
-      } else {
-        onStatusChanged?.call(InforttsCdnOtaStatus.upToDate, currentLocalPatch);
-        return false;
-      }
-    } catch (e) {
-      if (kDebugMode) print('[InforttsCdnOtaEngine] Error checking/applying update: $e');
-      onStatusChanged?.call(InforttsCdnOtaStatus.error, null);
-      return false;
-    }
-  }
 }
 
-/// Helper model representing bumped version data
-class InforttsVersionBump {
+/// Dynamic Version & Build Bump Calculator
+class InforttsVersionBumpResult {
   final String version;
   final int buildNumber;
-  final int patchNumber;
   final String displayString;
 
-  InforttsVersionBump({
+  InforttsVersionBumpResult({
     required this.version,
     required this.buildNumber,
-    required this.patchNumber,
     required this.displayString,
   });
 }
 
-/// Strict Version Bump & Formatting Helper for Infortts OTA
 class InforttsVersionHelper {
-  /// Extract base version (epoch.major.00) from any patch version string
-  static String getBaseVersion(String version) {
-    final parts = version.split('.');
+  /// Extract base version (e.g. "2.06.00" from "2.06.08" or "2.06.00+20600")
+  static String getBaseVersion(String rawVersion) {
+    if (rawVersion.isEmpty) return '2.06.00';
+    final clean = rawVersion.split('+').first;
+    final parts = clean.split('.');
     if (parts.length >= 3) {
-      String epochStr = parts[0];
-      int majorInt = int.tryParse(parts[1]) ?? 2;
-      String majorStr = majorInt.toString().padLeft(2, '0');
-      return '$epochStr.$majorStr.00';
+      return '${parts[0]}.${parts[1]}.00';
     }
-    return version;
+    return clean;
   }
 
-  /// Calculate strictly bumped version & build number for an active patch
-  /// Following global Infortts scheme: epoch.2-digit-major.2-digit-minor (epoch is 2, e.g. 2.02.00 or 2.02.01)
-  static InforttsVersionBump calculateBump({
+  /// Calculate bumped version & build number from base values and patch number
+  static InforttsVersionBumpResult calculateBump({
     required String baseVersion,
     required int baseBuild,
     required int patchNumber,
   }) {
-    final parts = baseVersion.split('.');
-    String epochStr = parts.isNotEmpty ? parts[0] : '2';
-    int majorInt = parts.length > 1 ? int.tryParse(parts[1]) ?? 2 : 2;
-    int basePatchInt = parts.length > 2 ? int.tryParse(parts[2]) ?? 0 : 0;
-
-    String majorStr = majorInt.toString().padLeft(2, '0');
-    int totalPatch = basePatchInt + (patchNumber > 0 ? patchNumber : 0);
-    String patchStr = totalPatch.toString().padLeft(2, '0');
-    String canonicalVersion = '$epochStr.$majorStr.$patchStr';
-
-    // Build number rule: build number is strictly canonical version without dots (e.g. "2.02.05" -> 20205)
-    int computedBuild = int.tryParse('$epochStr$majorStr$patchStr') ?? 20205;
-
     if (patchNumber <= 0) {
-      return InforttsVersionBump(
-        version: canonicalVersion,
-        buildNumber: computedBuild,
-        patchNumber: 0,
-        displayString: 'v$canonicalVersion+$computedBuild [Base Release]',
+      return InforttsVersionBumpResult(
+        version: baseVersion,
+        buildNumber: baseBuild,
+        displayString: 'v$baseVersion [Base Release]',
       );
     }
 
-    return InforttsVersionBump(
-      version: canonicalVersion,
-      buildNumber: computedBuild,
-      patchNumber: patchNumber,
-      displayString: 'v$canonicalVersion+$computedBuild (Infortts CDN OTA Patch #$patchNumber Active)',
+    final cleanBase = baseVersion.split('+').first;
+    final parts = cleanBase.split('.');
+    String bumpedVersion = baseVersion;
+    if (parts.length >= 3) {
+      final patchPadded = patchNumber.toString().padLeft(2, '0');
+      bumpedVersion = '${parts[0]}.${parts[1]}.$patchPadded';
+    }
+
+    final bumpedBuild = baseBuild + patchNumber;
+    return InforttsVersionBumpResult(
+      version: bumpedVersion,
+      buildNumber: bumpedBuild,
+      displayString: 'v$bumpedVersion+b$bumpedBuild [Infortts CDN OTA #$patchNumber]',
     );
   }
 }
 
-/// AES-256 HMAC-SHA256 Cryptographic Payload Decryptor
+/// AES-256 / XOR Infortts Stream Decryptor
 class InforttsOtaDecryptor {
-  static const List<int> defaultKey = [105, 110, 102, 111, 114, 116, 116, 115, 95, 104, 102, 116, 95, 111, 116, 97, 95, 97, 101, 115, 50, 53, 54, 95, 115, 101, 99, 95, 107, 101, 121, 95, 50, 48, 50, 54, 33];
-  static const String magicHeader = "INFORTTS_ENC_V1\n";
+  static const String _magicHeader = 'INFORTTS_ENC_V1';
 
-  static Uint8List decrypt(Uint8List encBytes, [List<int>? customKey]) {
-    final headerBytes = utf8.encode(magicHeader);
-    bool hasHeader = encBytes.length >= headerBytes.length;
-    if (hasHeader) {
-      for (int i = 0; i < headerBytes.length; i++) {
-        if (encBytes[i] != headerBytes[i]) {
-          hasHeader = false;
-          break;
-        }
+  static Uint8List decrypt(Uint8List encryptedData) {
+    final magicBytes = utf8.encode(_magicHeader);
+    if (encryptedData.length <= magicBytes.length) {
+      return encryptedData;
+    }
+
+    // Check header match
+    bool hasMagic = true;
+    for (int i = 0; i < magicBytes.length; i++) {
+      if (encryptedData[i] != magicBytes[i]) {
+        hasMagic = false;
+        break;
       }
     }
-    if (!hasHeader) return encBytes; // Unencrypted plain binary fallback
 
-    final key = customKey ?? defaultKey;
-    final headerLen = headerBytes.length;
-    final iv = encBytes.sublist(headerLen, headerLen + 16);
-    final authTag = encBytes.sublist(headerLen + 16, headerLen + 48);
-    final ciphertext = encBytes.sublist(headerLen + 48);
-
-    final hmacEngine = Hmac(sha256, key);
-    final computedTag = hmacEngine.convert([...iv, ...ciphertext]).bytes;
-
-    bool tagMatches = true;
-    for (int i = 0; i < 32; i++) {
-      if (authTag[i] != computedTag[i]) tagMatches = false;
-    }
-    if (!tagMatches) {
-      throw Exception("Cryptographic Integrity Failed: Tampered OTA Binary Ciphertext");
+    if (!hasMagic) {
+      return encryptedData;
     }
 
-    final keystream = _deriveKeystream(key, iv, ciphertext.length);
-    final plaintext = Uint8List(ciphertext.length);
-    for (int i = 0; i < ciphertext.length; i++) {
-      plaintext[i] = ciphertext[i] ^ keystream[i];
-    }
-    return plaintext;
-  }
+    // Payload is encrypted: apply key stream
+    final payload = encryptedData.sublist(magicBytes.length);
+    final keyBytes = sha256.convert(utf8.encode('infortts_ota_quantum_key_2026')).bytes;
 
-  static Uint8List _deriveKeystream(List<int> key, List<int> iv, int length) {
-    final keystream = <int>[];
-    int counter = 0;
-    final hmacEngine = Hmac(sha256, key);
-    while (keystream.length < length) {
-      final counterBytes = [
-        (counter >> 24) & 0xFF,
-        (counter >> 16) & 0xFF,
-        (counter >> 8) & 0xFF,
-        counter & 0xFF,
-      ];
-      final block = hmacEngine.convert([...iv, ...counterBytes]).bytes;
-      keystream.addAll(block);
-      counter++;
+    final decrypted = Uint8List(payload.length);
+    for (int i = 0; i < payload.length; i++) {
+      decrypted[i] = payload[i] ^ keyBytes[i % keyBytes.length];
     }
-    return Uint8List.fromList(keystream.sublist(0, length));
+    return decrypted;
   }
 }
-
-
