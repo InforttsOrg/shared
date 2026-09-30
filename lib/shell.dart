@@ -1396,6 +1396,8 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     final provider = (profile["provider"] as String?)?.trim();
     final scope = (profile["scope"] as String?)?.trim();
 
+    final isAuthed = _isAuthenticated && (session?.authenticated == true);
+
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
@@ -1403,7 +1405,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           width: 500,
           padding: const EdgeInsets.all(36),
           decoration: BoxDecoration(
-            color: AcousticColors.panelBg.withOpacity(0.6),
+            color: AcousticColors.isLight ? AcousticColors.darkCarbon : AcousticColors.panelBg.withOpacity(0.6),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: AcousticColors.midGray.withOpacity(0.15)),
           ),
@@ -1417,7 +1419,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               ),
               const SizedBox(height: 8),
               Text(
-                email.isNotEmpty ? "Signed in as $email." : "No active session.",
+                isAuthed ? "Signed in as $email." : "No active session (Guest Mode).",
                 style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.midGray),
               ),
               const SizedBox(height: 24),
@@ -1427,7 +1429,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     radius: 28,
                     backgroundColor: AcousticColors.sonarCyan.withOpacity(0.15),
                     child: Text(
-                      _initialsFor(displayName, email),
+                      _initialsFor(isAuthed ? displayName : "Guest", isAuthed ? email : "guest"),
                       style: GoogleFonts.outfit(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -1441,12 +1443,12 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          displayName,
+                          isAuthed ? displayName : "GUEST",
                           style: GoogleFonts.outfit(fontSize: 16, fontWeight: FontWeight.bold, color: AcousticColors.titanium),
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          email.isEmpty ? "Not signed in" : email,
+                          isAuthed ? (email.isEmpty ? "Signed In" : email) : "Not signed in",
                           style: GoogleFonts.jetBrainsMono(fontSize: 10, color: AcousticColors.steel),
                         ),
                         if (role != null && role.isNotEmpty) ...[
@@ -1473,17 +1475,17 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AcousticColors.black.withOpacity(0.4),
+                  color: AcousticColors.isLight ? AcousticColors.panelBg : AcousticColors.black.withOpacity(0.4),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildProfileRow("USER ID", session?.userId ?? "—"),
+                    _buildProfileRow("USER ID", isAuthed ? (session?.userId ?? "—") : "usr_guest"),
                     const SizedBox(height: 8),
-                    _buildProfileRow("PROVIDER", provider ?? "—"),
+                    _buildProfileRow("PROVIDER", isAuthed ? (provider ?? "glycocalyx") : "guest"),
                     const SizedBox(height: 8),
-                    _buildProfileRow("SCOPE", scope ?? "—"),
+                    _buildProfileRow("SCOPE", isAuthed ? (scope ?? "—") : "read-only"),
                     const SizedBox(height: 8),
                     _buildProfileRow("LINKED ACCOUNTS", _linkedAccountsLabel(profile)),
                   ],
@@ -1499,7 +1501,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 6),
                   decoration: BoxDecoration(
-                    color: AcousticColors.black.withOpacity(0.4),
+                    color: AcousticColors.isLight ? AcousticColors.panelBg : AcousticColors.black.withOpacity(0.4),
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: AcousticColors.midGray.withOpacity(0.1)),
                   ),
@@ -1581,18 +1583,37 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 ),
               ],
               const SizedBox(height: 32),
-              OutlinedButton(
-                onPressed: _handleLogout,
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AcousticColors.warnOrange),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              if (isAuthed)
+                OutlinedButton.icon(
+                  onPressed: _handleLogout,
+                  icon: const Icon(Icons.logout_rounded, size: 16),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AcousticColors.warnOrange,
+                    side: BorderSide(color: AcousticColors.warnOrange),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  ),
+                  label: Text(
+                    "SIGN OUT ACTIVE ACCOUNT",
+                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                  ),
+                )
+              else
+                ElevatedButton.icon(
+                  onPressed: _handleGoogleSSO,
+                  icon: const Icon(Icons.login_rounded, size: 16),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AcousticColors.sonarCyan.withOpacity(0.15),
+                    foregroundColor: AcousticColors.sonarCyan,
+                    side: BorderSide(color: AcousticColors.sonarCyan.withOpacity(0.5)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  ),
+                  label: Text(
+                    "SIGN IN WITH GOOGLE SSO",
+                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                  ),
                 ),
-                child: Text(
-                  "SIGN OUT ACTIVE ACCOUNT",
-                  style: GoogleFonts.outfit(fontSize: 10, color: AcousticColors.warnOrange, fontWeight: FontWeight.bold, letterSpacing: 1.5),
-                ),
-              ),
             ],
           ),
         ),
@@ -1714,7 +1735,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           width: 500,
           padding: const EdgeInsets.all(36),
           decoration: BoxDecoration(
-            color: AcousticColors.panelBg.withOpacity(0.6),
+            color: AcousticColors.isLight ? AcousticColors.darkCarbon : AcousticColors.panelBg.withOpacity(0.6),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: AcousticColors.midGray.withOpacity(0.15)),
           ),
@@ -1756,7 +1777,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               const SizedBox(height: 24),
               // Profile and About section links inside Settings
               Card(
-                color: AcousticColors.black.withOpacity(0.3),
+                color: AcousticColors.isLight ? AcousticColors.panelBg : AcousticColors.black.withOpacity(0.3),
                 margin: const EdgeInsets.only(bottom: 24),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -1792,7 +1813,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AcousticColors.black.withOpacity(0.4),
+                  color: AcousticColors.isLight ? AcousticColors.panelBg : AcousticColors.black.withOpacity(0.4),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Column(
@@ -1831,7 +1852,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AcousticColors.black.withOpacity(0.4),
+                  color: AcousticColors.isLight ? AcousticColors.panelBg : AcousticColors.black.withOpacity(0.4),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Column(
@@ -2401,12 +2422,12 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
                 if (isMobile) ...[
                   Infortts3DLogo(appName: widget.appName, size: logoSize),
                   const SizedBox(height: 24),
-                  Container(
+                    Container(
                     width: double.infinity,
                     constraints: const BoxConstraints(maxWidth: 420),
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: AcousticColors.panelBg.withOpacity(0.5),
+                      color: AcousticColors.isLight ? AcousticColors.darkCarbon : AcousticColors.panelBg.withOpacity(0.5),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: AcousticColors.midGray.withOpacity(0.15)),
                     ),
@@ -2481,7 +2502,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
                         width: 380,
                         padding: const EdgeInsets.all(28),
                         decoration: BoxDecoration(
-                          color: AcousticColors.panelBg.withOpacity(0.5),
+                          color: AcousticColors.isLight ? AcousticColors.darkCarbon : AcousticColors.panelBg.withOpacity(0.5),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: AcousticColors.midGray.withOpacity(0.15)),
                         ),

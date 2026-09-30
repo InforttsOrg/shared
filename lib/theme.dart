@@ -10,29 +10,41 @@ final ValueNotifier<Brightness> acousticBrightness =
 
 /// The official, trademarked Infortts™ Acoustic-Refraction™ / Rocky-Vision™ Color Palette.
 class AcousticColors {
-  // ---- ACES Crushed Blacks & Carbon Base ----
-  static const Color black = Color(0xFF05070C);        // Deepest desaturated base
-  static const Color obsidian = Color(0xFF0D1117);     // Obsidian surface base
-  static const Color darkCarbon = Color(0xFF090D1A);   // Standard background
-  static const Color panelBg = Color(0xFF121B2D);      // Volumetric card fill
-  static const Color activeCard = Color(0xFF1D2A44);   // Highlighted panel base
+  static bool get isLight => acousticBrightness.value == Brightness.light;
 
-  // ---- Dark aliases ----
-  static const Color blackDark = black;
-  static const Color darkCarbonDark = darkCarbon;
-  static const Color panelBgDark = panelBg;
-  static const Color activeCardDark = activeCard;
+  // ---- ACES Crushed Blacks & Carbon Base (Dark palette) ----
+  static const Color blackDark = Color(0xFF05070C);        // Deepest desaturated base
+  static const Color obsidianDark = Color(0xFF0D1117);     // Obsidian surface base
+  static const Color darkCarbonDark = Color(0xFF090D1A);   // Standard background
+  static const Color panelBgDark = Color(0xFF121B2D);      // Volumetric card fill
+  static const Color activeCardDark = Color(0xFF1D2A44);   // Highlighted panel base
 
-  // ---- Light source values ----
-  static const Color blackLight = Color(0xFFF8FAFC);       // Slate 50
-  static const Color darkCarbonLight = Color(0xFFFFFFFF);  // White
-  static const Color panelBgLight = Color(0xFFF1F5F9);     // Slate 100
-  static const Color activeCardLight = Color(0xFFE2E8F0);  // Slate 200
+  // ---- Crisp Clean Light Base (Light palette) ----
+  static const Color blackLight = Color(0xFFF8FAFC);       // Slate 50 canvas
+  static const Color obsidianLight = Color(0xFFFFFFFF);    // Pure white surface
+  static const Color darkCarbonLight = Color(0xFFFFFFFF);  // Clean white surface/card
+  static const Color panelBgLight = Color(0xFFF1F5F9);     // Slate 100 panel fill
+  static const Color activeCardLight = Color(0xFFE2E8F0);  // Slate 200 highlighted panel
+
+  // Dynamic Base Getters
+  static Color get black => isLight ? blackLight : blackDark;
+  static Color get obsidian => isLight ? obsidianLight : obsidianDark;
+  static Color get darkCarbon => isLight ? darkCarbonLight : darkCarbonDark;
+  static Color get panelBg => isLight ? panelBgLight : panelBgDark;
+  static Color get activeCard => isLight ? activeCardLight : activeCardDark;
 
   // ---- Desaturated Midtones (Cool Slate) ----
-  static const Color midGray = Color(0xFF64748B);       // Borders and subtext
-  static const Color steel = Color(0xFF94A3B8);         // Body copy (Slate 400)
-  static const Color titanium = Color(0xFFE2E8F0);      // High-contrast titles (Slate 200)
+  static const Color midGrayDark = Color(0xFF64748B);       // Borders and subtext (Slate 500)
+  static const Color midGrayLight = Color(0xFF94A3B8);      // Borders and subtext in light (Slate 400)
+  static Color get midGray => isLight ? midGrayLight : midGrayDark;
+
+  static const Color steelDark = Color(0xFF94A3B8);         // Body copy (Slate 400)
+  static const Color steelLight = Color(0xFF475569);        // Body copy in light (Slate 600)
+  static Color get steel => isLight ? steelLight : steelDark;
+
+  static const Color titaniumDark = Color(0xFFE2E8F0);      // High-contrast titles (Slate 200)
+  static const Color titaniumLight = Color(0xFF0F172A);     // High-contrast titles in light (Slate 900)
+  static Color get titanium => isLight ? titaniumLight : titaniumDark;
 
   // ---- Motivated Emissives (Acoustic Cyan & Warm Warnings) ----
   static const Color sonarCyan = Color(0xFF00D2FF);     // Active state
