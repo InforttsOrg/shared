@@ -548,8 +548,8 @@ class InforttsAppShell extends StatefulWidget {
     this.additionalTabs,
     this.auth,
     this.settingsSections,
-    this.requireAuth = false,
-    this.allowGuest = true,
+    this.requireAuth = true,
+    this.allowGuest = false,
     this.showSplash = false,
   });
 

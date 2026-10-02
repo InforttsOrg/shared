@@ -276,14 +276,14 @@ class InforttsAuthManager {
   InforttsAuthManager._({GlycocalyxAuth? api}) : api = api ?? GlycocalyxAuth();
 
   bool get isAuthenticated => sessionNotifier.value?.authenticated ?? false;
-  bool get isGuest => sessionNotifier.value?.isGuest ?? true;
+  bool get isGuest => sessionNotifier.value?.isGuest ?? false;
   AuthSession? get currentSession => sessionNotifier.value;
   String? get currentToken => tokenNotifier.value;
   List<AuthSession> get savedAccounts => accountsNotifier.value;
 
   /// Initialize session from local storage. If no session exists and [requireAuth] is false,
   /// enters guest mode so the user can immediately use the app without being blocked.
-  Future<void> initialize({bool requireAuth = false}) async {
+  Future<void> initialize({bool requireAuth = true}) async {
     if (_initialized) return;
     _initialized = true;
 
@@ -335,11 +335,17 @@ class InforttsAuthManager {
       // If no valid authenticated session found:
       if (!requireAuth) {
         enterGuestMode();
+      } else {
+        sessionNotifier.value = null;
+        tokenNotifier.value = null;
       }
     } catch (e) {
       debugPrint('InforttsAuthManager initialization error: $e');
       if (!requireAuth) {
         enterGuestMode();
+      } else {
+        sessionNotifier.value = null;
+        tokenNotifier.value = null;
       }
     }
   }
@@ -521,7 +527,7 @@ class InforttsAuthManager {
   }
 
   /// Sign out current active session.
-  Future<void> signOut() async {
+  Future<void> signOut({bool requireAuth = true}) async {
     final token = tokenNotifier.value;
     if (token != null && token.isNotEmpty) {
       unawaited(api.logout(token));
@@ -533,7 +539,12 @@ class InforttsAuthManager {
     await prefs.remove('infortts_auth_token');
     await prefs.remove('infortts_auth_profile');
 
-    enterGuestMode();
+    if (!requireAuth) {
+      enterGuestMode();
+    } else {
+      sessionNotifier.value = null;
+      tokenNotifier.value = null;
+    }
   }
 
   /// Sync live profile data with server if token is present.
