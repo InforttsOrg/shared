@@ -7,6 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'notification_helper.dart';
+import 'shell.dart';
 import 'theme.dart';
 
 class InforttsNotificationEvent {

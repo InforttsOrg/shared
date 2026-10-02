@@ -54,7 +54,7 @@ bool showNativeNotification({
       tag: tag ?? "infortts_alert",
     );
     notif.onClick.listen((_) {
-      html.window.focus();
+      try { (html.window as dynamic).focus(); } catch (_) {}
       if (targetUrl != null && targetUrl.isNotEmpty) {
         html.window.location.href = targetUrl;
       }
