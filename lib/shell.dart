@@ -24,6 +24,7 @@ import 'url_helper.dart';
 import 'error.dart';
 import 'ota_engine.dart';
 import 'cdn_ota_engine.dart';
+import 'infortts_notification_service.dart';
 
 class InforttsTab {
   final String label;
@@ -571,12 +572,14 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   bool _isCheckingOtaCron = false;
   bool _isOtaModalShowing = false;
   int? _dismissedPatchNumber;
+  StreamSubscription<InforttsNotificationEvent>? _notificationSub;
 
   late final List<InforttsTab> _tabs;
 
   @override
   void dispose() {
     _otaCronTimer?.cancel();
+    _notificationSub?.cancel();
     inforttsTabController.removeListener(_onTabChangedByController);
     InforttsAuthManager.instance.sessionNotifier.removeListener(_onAuthSessionChanged);
     InforttsAuthManager.instance.accountsNotifier.removeListener(_onAccountsChanged);
@@ -616,6 +619,23 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       _checkForUrlToken();
       if (!kIsWeb) {
         _initDeepLinks();
+      }
+      _initNotificationService();
+    });
+  }
+
+  void _initNotificationService() {
+    InforttsNotificationService.instance.initialize(context: context, autoPrompt: true);
+    _notificationSub = InforttsNotificationService.instance.eventStream.listen((event) {
+      if (mounted) {
+        showTopSnackBar(
+          context,
+          title: "⚡ ${event.title.toUpperCase()}",
+          message: event.body,
+          icon: Icons.notifications_active_rounded,
+          color: AcousticColors.sonarCyan,
+          duration: const Duration(seconds: 5),
+        );
       }
     });
   }
