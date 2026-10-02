@@ -1816,6 +1816,65 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     ),
                     Divider(color: AcousticColors.midGray.withOpacity(0.15), height: 1),
                     ListTile(
+                      leading: Icon(Icons.notifications_active_outlined, color: AcousticColors.sonarCyan, size: 20),
+                      title: Text("REAL-TIME ALERTS & NOTIFICATIONS", style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.titanium, fontWeight: FontWeight.bold)),
+                      subtitle: Text(
+                        InforttsNotificationService.instance.isGranted
+                            ? "Status: Active (Real-Time SSE Alerts Enabled)"
+                            : "Status: Disabled / Permission Required — Click to Enable",
+                        style: GoogleFonts.outfit(
+                          fontSize: 9,
+                          color: InforttsNotificationService.instance.isGranted ? const Color(0xFF10B981) : AcousticColors.midGray,
+                        ),
+                      ),
+                      trailing: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: InforttsNotificationService.instance.isGranted
+                              ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                              : AcousticColors.sonarCyan.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: InforttsNotificationService.instance.isGranted
+                                ? const Color(0xFF10B981)
+                                : AcousticColors.sonarCyan,
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Text(
+                          InforttsNotificationService.instance.isGranted ? "TEST ALERT" : "ENABLE",
+                          style: GoogleFonts.jetBrainsMono(
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.bold,
+                            color: InforttsNotificationService.instance.isGranted
+                                ? const Color(0xFF10B981)
+                                : AcousticColors.sonarCyan,
+                          ),
+                        ),
+                      ),
+                      onTap: () async {
+                        if (!InforttsNotificationService.instance.isGranted) {
+                          await InforttsNotificationService.instance.requestPermission(context: context);
+                          setState(() {});
+                        } else {
+                          InforttsNotificationBridge.showNotification(
+                            title: "⚡ TEST MARKET SIGNAL",
+                            body: "Mitochondria Swarm: XAUUSD Long reaction tested successfully.",
+                            tag: "test_alert",
+                            targetUrl: "https://client.infortts.site",
+                          );
+                          showTopSnackBar(
+                            context,
+                            title: "TEST ALERT DISPATCHED",
+                            message: "Notification sent to system notification tray.",
+                            icon: Icons.check_circle_outline,
+                            color: AcousticColors.sonarCyan,
+                          );
+                        }
+                      },
+                    ),
+                    Divider(color: AcousticColors.midGray.withOpacity(0.15), height: 1),
+                    ListTile(
                       leading: Icon(Icons.info_outline, color: AcousticColors.sonarCyan, size: 20),
                       title: Text("ABOUT SYSTEM", style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.titanium, fontWeight: FontWeight.bold)),
                       subtitle: Text("Coded lifeform description & 3D emblem", style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray)),

@@ -2,7 +2,21 @@ import 'dart:html' as html;
 
 String? getUrlToken() {
   final uri = Uri.parse(html.window.location.href);
-  return uri.queryParameters['token'];
+  final tokenParam = uri.queryParameters['token'];
+  if (tokenParam != null && tokenParam.isNotEmpty) {
+    return tokenParam;
+  }
+  try {
+    final cookie = html.document.cookie ?? '';
+    for (final pair in cookie.split(';')) {
+      final parts = pair.trim().split('=');
+      if (parts.length >= 2 && parts[0].trim() == 'glycocalyx_token') {
+        final val = parts.sublist(1).join('=').trim();
+        if (val.isNotEmpty) return val;
+      }
+    }
+  } catch (_) {}
+  return null;
 }
 
 String getCurrentUrl() {

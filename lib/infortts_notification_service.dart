@@ -72,16 +72,12 @@ class InforttsNotificationService extends ChangeNotifier {
       _permissionStatus = await InforttsNotificationBridge.getPermission();
       notifyListeners();
 
-      if (autoPrompt && _permissionStatus == "default" && context != null && !_promptShown) {
-        final prefs = await SharedPreferences.getInstance();
-        final dismissed = prefs.getBool(_kPromptDismissedKey) ?? false;
-        if (!dismissed) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) {
-              showPermissionPromptModal(context);
-            }
-          });
-        }
+      if (autoPrompt && (_permissionStatus == "default" || _permissionStatus == "prompt") && context != null && !_promptShown) {
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (context.mounted && !_promptShown) {
+            showPermissionPromptModal(context);
+          }
+        });
       }
 
       startStreamListener();
@@ -97,11 +93,20 @@ class InforttsNotificationService extends ChangeNotifier {
 
       if (_permissionStatus == "granted") {
         InforttsNotificationBridge.showNotification(
-          title: "🔔 Infortts Real-Time Alerts Active",
+          title: "🔔 Real-Time Market Alerts Active",
           body: "You will receive instant macro news, Indian stocks, and 1m A+ trade setups.",
           tag: "welcome_alert",
           targetUrl: "https://client.infortts.site",
         );
+        if (context != null && context.mounted) {
+          showTopSnackBar(
+            context,
+            title: "NOTIFICATIONS ACTIVE",
+            message: "Push notifications enabled for live market alerts.",
+            icon: Icons.notifications_active_rounded,
+            color: AcousticColors.sonarCyan,
+          );
+        }
       }
       return _permissionStatus;
     } catch (e) {
