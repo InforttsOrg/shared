@@ -533,7 +533,7 @@ Keep the answer direct, precise, and without conversational filler."""
             headers={"Content-Type": "application/json"},
             method="POST"
         )
-        with urllib.request.urlopen(req, timeout=12) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             llm_text = data.get("response", "").strip()
 
