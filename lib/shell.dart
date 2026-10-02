@@ -1361,18 +1361,20 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5),
                   ),
                 ),
-                const SizedBox(height: 10),
-                TextButton(
-                  onPressed: _enterGuestMode,
-                  style: TextButton.styleFrom(
-                    foregroundColor: AcousticColors.midGray,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                if (widget.allowGuest) ...[
+                  const SizedBox(height: 10),
+                  TextButton(
+                    onPressed: _enterGuestMode,
+                    style: TextButton.styleFrom(
+                      foregroundColor: AcousticColors.midGray,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    ),
+                    child: Text(
+                      "CONTINUE AS GUEST",
+                      style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1.2),
+                    ),
                   ),
-                  child: Text(
-                    "CONTINUE AS GUEST",
-                    style: GoogleFonts.outfit(fontSize: 9, fontWeight: FontWeight.w600, letterSpacing: 1.2),
-                  ),
-                ),
+                ],
                 const SizedBox(height: 18),
                 const Center(
                   child: InforttsWatermark(size: 10.0),
