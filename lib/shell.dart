@@ -539,6 +539,7 @@ class InforttsAppShell extends StatefulWidget {
   final bool requireAuth;
   final bool allowGuest;
   final bool showSplash;
+  final bool autoPromptNotifications;
 
   const InforttsAppShell({
     super.key,
@@ -552,6 +553,7 @@ class InforttsAppShell extends StatefulWidget {
     this.requireAuth = true,
     this.allowGuest = false,
     this.showSplash = false,
+    this.autoPromptNotifications = false,
   });
 
   @override
@@ -641,7 +643,11 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   }
 
   void _initNotificationService() {
-    InforttsNotificationService.instance.initialize(context: context, autoPrompt: true);
+    InforttsNotificationService.instance.initialize(
+      context: context,
+      autoPrompt: widget.autoPromptNotifications,
+      appName: widget.appName,
+    );
     _notificationSub = InforttsNotificationService.instance.eventStream.listen((event) {
       if (mounted) {
         showTopSnackBar(
@@ -1874,14 +1880,14 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                       ),
                       onTap: () async {
                         if (!InforttsNotificationService.instance.isGranted) {
-                          await InforttsNotificationService.instance.requestPermission(context: context);
+                          await InforttsNotificationService.instance.requestPermission(context: context, appName: widget.appName);
                           setState(() {});
                         } else {
                           InforttsNotificationBridge.showNotification(
-                            title: "⚡ TEST MARKET SIGNAL",
-                            body: "Mitochondria Swarm: XAUUSD Long reaction tested successfully.",
+                            title: "⚡ TEST ${widget.appName.toUpperCase()} ALERT",
+                            body: "${widget.appName} Swarm: Telemetry notification channel verified.",
                             tag: "test_alert",
-                            targetUrl: "https://client.infortts.site",
+                            targetUrl: "https://admin.infortts.site",
                           );
                           showTopSnackBar(
                             context,

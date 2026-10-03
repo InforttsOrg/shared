@@ -38,7 +38,7 @@ class InforttsNotificationEvent {
       body: json['body']?.toString() ?? '',
       topic: json['topic']?.toString() ?? 'general',
       priority: json['priority']?.toString() ?? 'normal',
-      url: json['url']?.toString() ?? 'https://client.infortts.site',
+      url: json['url']?.toString() ?? 'https://admin.infortts.site',
       timestamp: json['timestamp'] != null 
           ? DateTime.tryParse(json['timestamp'].toString()) ?? DateTime.now()
           : DateTime.now(),
@@ -65,7 +65,7 @@ class InforttsNotificationService extends ChangeNotifier {
 
   static const String _kPromptDismissedKey = 'infortts_notif_prompt_dismissed';
 
-  Future<void> initialize({BuildContext? context, bool autoPrompt = true}) async {
+  Future<void> initialize({BuildContext? context, bool autoPrompt = true, String appName = 'Infortts'}) async {
     if (_initialized) return;
     _initialized = true;
 
@@ -76,7 +76,7 @@ class InforttsNotificationService extends ChangeNotifier {
       if (autoPrompt && (_permissionStatus == "default" || _permissionStatus == "prompt") && context != null && !_promptShown) {
         Future.delayed(const Duration(milliseconds: 800), () {
           if (context.mounted && !_promptShown) {
-            showPermissionPromptModal(context);
+            showPermissionPromptModal(context, appName: appName);
           }
         });
       }
@@ -87,23 +87,37 @@ class InforttsNotificationService extends ChangeNotifier {
     }
   }
 
-  Future<String> requestPermission({BuildContext? context}) async {
+  Future<String> requestPermission({BuildContext? context, String appName = 'Infortts'}) async {
     try {
       _permissionStatus = await InforttsNotificationBridge.requestPermission();
       notifyListeners();
 
       if (_permissionStatus == "granted") {
+        final lower = appName.toLowerCase();
+        final bool isTrading = lower.contains("mitochondria") || lower.contains("trading");
+        final bool isAdmin = lower.contains("admin") || lower.contains("control");
+
+        final String notifTitle = isTrading
+            ? "🔔 Real-Time Market Alerts Active"
+            : (isAdmin ? "🔔 Fleet & System Telemetry Active" : "🔔 $appName Alerts Active");
+
+        final String notifBody = isTrading
+            ? "You will receive instant macro news, Indian stocks, and 1m A+ trade setups."
+            : (isAdmin
+                ? "You will receive real-time fleet health, spend guards, and pipeline alerts."
+                : "Push notifications enabled for $appName.");
+
         InforttsNotificationBridge.showNotification(
-          title: "🔔 Real-Time Market Alerts Active",
-          body: "You will receive instant macro news, Indian stocks, and 1m A+ trade setups.",
+          title: notifTitle,
+          body: notifBody,
           tag: "welcome_alert",
-          targetUrl: "https://client.infortts.site",
+          targetUrl: "https://admin.infortts.site",
         );
         if (context != null && context.mounted) {
           showTopSnackBar(
             context,
             title: "NOTIFICATIONS ACTIVE",
-            message: "Push notifications enabled for live market alerts.",
+            message: notifBody,
             icon: Icons.notifications_active_rounded,
             color: AcousticColors.sonarCyan,
           );
@@ -187,9 +201,49 @@ class InforttsNotificationService extends ChangeNotifier {
     );
   }
 
-  Future<bool?> showPermissionPromptModal(BuildContext context) async {
+  Future<bool?> showPermissionPromptModal(BuildContext context, {String appName = 'Infortts'}) async {
     _promptShown = true;
     if (!context.mounted) return false;
+
+    final lower = appName.toLowerCase();
+    final bool isTrading = lower.contains("mitochondria") || lower.contains("trading") || lower.contains("forensic");
+    final bool isAdmin = lower.contains("admin") || lower.contains("control");
+
+    final String modalTitle;
+    final String modalSubtitle;
+    final String modalDesc;
+    final List<String> features;
+
+    if (isTrading) {
+      modalTitle = "ENABLE MARKET ALERTS";
+      modalSubtitle = "Real-Time Macro & A+ Trade Signals";
+      modalDesc = "Enable browser & system notifications to receive instant high-frequency alerts directly from the Infortts Swarm:";
+      features = const [
+        "⚡ 1m Momentum Scalps & Volatility Spikes",
+        "🔴 ForexFactory Red Folders (FOMC, NFP, CPI)",
+        "🇮🇳 Indian Stock Market (NSE/BSE) Announcements",
+        "🎯 High-Timeframe A+ Structure Setups",
+      ];
+    } else if (isAdmin) {
+      modalTitle = "ENABLE FLEET & SYSTEM ALERTS";
+      modalSubtitle = "Real-Time Fleet Telemetry & Swarm Alerts";
+      modalDesc = "Enable browser & system notifications to receive instant operational and security alerts directly from the Infortts Swarm:";
+      features = const [
+        "⚡ Node Health & Always-Free Spend Guard Alerts",
+        "🛡️ Glycocalyx SSO & RBAC Security Notifications",
+        "🚀 CI/CD Pipeline & App Store Release Updates",
+        "🔄 Swarm Microservice Heartbeats & Failovers",
+      ];
+    } else {
+      modalTitle = "ENABLE $appName ALERTS";
+      modalSubtitle = "Real-Time Updates & Ecosystem Alerts";
+      modalDesc = "Enable browser & system notifications to receive essential updates directly from the Infortts Swarm:";
+      features = const [
+        "⚡ Important Updates & OTA Release Notices",
+        "🛡️ Account Security & Sync Notifications",
+        "🌐 Decentralized Swarm Service Status",
+      ];
+    }
 
     return showDialog<bool>(
       context: context,
@@ -218,7 +272,7 @@ class InforttsNotificationService extends ChangeNotifier {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "ENABLE MARKET ALERTS",
+                      modalTitle,
                       style: GoogleFonts.outfit(
                         color: AcousticColors.titanium,
                         fontWeight: FontWeight.bold,
@@ -227,7 +281,7 @@ class InforttsNotificationService extends ChangeNotifier {
                       ),
                     ),
                     Text(
-                      "Real-Time Macro & A+ Trade Signals",
+                      modalSubtitle,
                       style: GoogleFonts.outfit(color: AcousticColors.midGray, fontSize: 10),
                     ),
                   ],
@@ -240,17 +294,14 @@ class InforttsNotificationService extends ChangeNotifier {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "Enable browser & system notifications to receive instant high-frequency alerts directly from the Infortts Swarm:",
+                modalDesc,
                 style: GoogleFonts.outfit(color: AcousticColors.steel, fontSize: 11, height: 1.4),
               ),
               const SizedBox(height: 14),
-              _buildFeatureRow("⚡ 1m Momentum Scalps & Volatility Spikes"),
-              const SizedBox(height: 6),
-              _buildFeatureRow("🔴 ForexFactory Red Folders (FOMC, NFP, CPI)"),
-              const SizedBox(height: 6),
-              _buildFeatureRow("🇮🇳 Indian Stock Market (NSE/BSE) Announcements"),
-              const SizedBox(height: 6),
-              _buildFeatureRow("🎯 High-Timeframe A+ Structure Setups"),
+              for (final f in features) ...[
+                _buildFeatureRow(f),
+                const SizedBox(height: 6),
+              ],
             ],
           ),
           actions: [
@@ -274,7 +325,7 @@ class InforttsNotificationService extends ChangeNotifier {
               ),
               onPressed: () async {
                 Navigator.pop(dialogCtx, true);
-                await requestPermission(context: context);
+                await requestPermission(context: context, appName: appName);
               },
               icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
               label: Text(
