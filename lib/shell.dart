@@ -827,24 +827,11 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         );
       }
     } catch (e) {
-      debugPrint("Password login failed, using local operator: $e");
-      final local = AuthSession(
-        userId: "usr_${DateTime.now().millisecondsSinceEpoch}",
-        email: email.trim(),
-        profile: {
-          "display_name": email.split('@')[0].toUpperCase(),
-          "username": email.split('@')[0],
-          "provider": "credentials",
-        },
-      );
-      await InforttsAuthManager.instance.saveSession(local);
+      debugPrint("Password login failed: $e");
       if (mounted) {
-        showTopSnackBar(
+        showErrorSnackBar(
           context,
-          title: "AUTHENTICATED (LOCAL)",
-          message: "Signed in as ${local.displayName}",
-          icon: Icons.check_circle_outline,
-          color: AcousticColors.sonarCyan,
+          "Authentication failed: Account must exist and be verified in Glycocalyx SSO.",
         );
       }
     }
