@@ -26,6 +26,7 @@ import 'ota_engine.dart';
 import 'cdn_ota_engine.dart';
 import 'notification_helper.dart';
 import 'infortts_notification_service.dart';
+import 'infortts_notification_center.dart';
 
 class InforttsTab {
   final String label;
@@ -1898,6 +1899,33 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                           );
                         }
                       },
+                    ),
+                    Divider(color: AcousticColors.midGray.withOpacity(0.15), height: 1),
+                    ListTile(
+                      leading: Icon(Icons.inbox_rounded, color: AcousticColors.sonarCyan, size: 20),
+                      title: Text("NOTIFICATION INTELLIGENCE FEED", style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.titanium, fontWeight: FontWeight.bold)),
+                      subtitle: Text("Indian stocks, macro events, trade setups & system notifications", style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (InforttsNotificationService.instance.unreadCount > 0) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: AcousticColors.sonarCyan,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                "${InforttsNotificationService.instance.unreadCount} NEW",
+                                style: GoogleFonts.jetBrainsMono(fontSize: 8, color: Colors.black, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
+                          Icon(Icons.chevron_right, color: AcousticColors.steel, size: 18),
+                        ],
+                      ),
+                      onTap: () => InforttsNotificationCenter.show(context, appName: widget.appName),
                     ),
                     Divider(color: AcousticColors.midGray.withOpacity(0.15), height: 1),
                     ListTile(

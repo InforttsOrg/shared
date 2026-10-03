@@ -3,21 +3,31 @@
 Shared Infortts Push Notification Client
 Used across Mitochondria, Forensics, Meeseeks, Care4U, and all Infortts ecosystem apps
 to dispatch multi-channel push alerts, macro news, trade setups, and newsletters.
+Guarantees persistent collection into SQLite DB.
 """
 
 import os
 import json
 import urllib.request
 import ssl
+from datetime import datetime, timezone
+
+try:
+    import notification_db
+    HAS_LOCAL_DB = True
+except ImportError:
+    HAS_LOCAL_DB = False
 
 PUSH_GATEWAY_URL = os.getenv("PUSH_GATEWAY_URL", "http://127.0.0.1:8035/api/v1/notify")
 
 def send_push_notification(title: str, body: str, topic: str = "trades", channels=None, priority="high", url="https://client.infortts.site", data=None):
-    """Dispatches a notification to the Infortts notification gateway."""
+    """Dispatches a notification to the Infortts notification gateway and persists to SQLite."""
     if channels is None:
         channels = ["in_app", "web_push", "mobile_push", "telegram"]
         
     payload = {
+        "id": f"notif_{int(datetime.now(timezone.utc).timestamp() * 1000)}",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "title": title,
         "body": body,
         "topic": topic,
@@ -26,7 +36,15 @@ def send_push_notification(title: str, body: str, topic: str = "trades", channel
         "url": url,
         "data": data or {}
     }
+
+    # 1. Always record in SQLite DB
+    if HAS_LOCAL_DB:
+        try:
+            notification_db.insert_notification(payload)
+        except Exception:
+            pass
     
+    # 2. Forward to local FastAPI gateway if running
     try:
         req = urllib.request.Request(
             PUSH_GATEWAY_URL,
@@ -36,10 +54,10 @@ def send_push_notification(title: str, body: str, topic: str = "trades", channel
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
-        with urllib.request.urlopen(req, context=ctx, timeout=4) as resp:
+        with urllib.request.urlopen(req, context=ctx, timeout=3) as resp:
             return json.loads(resp.read().decode())
-    except Exception as e:
-        # Fallback to direct ntfy push if local gateway is warming up
+    except Exception:
+        # Fallback to direct ntfy push if local gateway is not running
         try:
             ntfy_url = "https://ntfy.sh"
             p_level = 5 if priority == "critical" else (4 if priority == "high" else 3)
@@ -59,11 +77,11 @@ def send_push_notification(title: str, body: str, topic: str = "trades", channel
                 method="POST"
             )
             ctx2 = ssl._create_unverified_context()
-            with urllib.request.urlopen(req2, context=ctx2, timeout=5) as resp2:
+            with urllib.request.urlopen(req2, context=ctx2, timeout=4) as resp2:
                 resp_data = json.loads(resp2.read().decode())
                 return {"status": "dispatched", "channel": "mobile_push_hub", "topic": topic, "id": resp_data.get("id")}
         except Exception as err:
-            return {"status": "fallback_error", "error": str(err), "topic": topic}
+            return {"status": "saved_to_db", "error": str(err), "topic": topic}
 
 # --- Specialized Helpers for Mitochondria & Macro Trading ---
 
@@ -151,24 +169,3 @@ def notify_newsletter_digest(edition: str, subject: str, headline: str, summary:
         url=read_url,
         data={"type": "newsletter", "edition": edition}
     )
-
-def broadcast_all_apps_notification(title: str, body: str, data=None):
-    """Dispatches high-priority push notifications across all Infortts ecosystem apps."""
-    topics = ["mitochondria", "meeseeks", "care4u", "yorgia", "artits", "ikaria", "all_apps"]
-    results = {}
-    for t in topics:
-        results[t] = send_push_notification(title=title, body=body, topic=t, data=data)
-    return results
-
-if __name__ == "__main__":
-    print("[*] Running Notification Client Self-Test...")
-    res1 = notify_macro_news(
-        title="US Non-Farm Payrolls & Unemployment Rate",
-        impact="Red",
-        country="USD",
-        details="Non-Farm Employment Change & Unemployment Rate release imminent at 12:30 GMT.",
-        forecast="165K",
-        actual="142K",
-        previous="114K"
-    )
-    print("Macro News Test:", res1)

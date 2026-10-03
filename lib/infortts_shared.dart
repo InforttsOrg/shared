@@ -20,4 +20,5 @@ export 'user_comms.dart';
 export 'infortts_ota_service.dart';
 export 'ota_splash_gate.dart';
 export 'infortts_notification_service.dart';
+export 'infortts_notification_center.dart';
 export 'notification_helper.dart';
