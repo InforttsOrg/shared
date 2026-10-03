@@ -560,6 +560,8 @@ class InforttsAppShell extends StatefulWidget {
 
 class _InforttsAppShellState extends State<InforttsAppShell> {
   bool _showSplash = false;
+  bool _minSplashDurationElapsed = false;
+  bool _isInitialAuthReady = false;
   bool _isAuthenticated = false;
   int _activeTab = 0;
   AuthSession? _authSession;
@@ -591,6 +593,8 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   void initState() {
     super.initState();
     _showSplash = widget.showSplash;
+    _minSplashDurationElapsed = !widget.showSplash;
+    _isInitialAuthReady = !widget.requireAuth;
     _currentVersion = widget.appVersion ?? "2.06.03";
     _currentBuildNumber = "20603";
     _initPackageInfo();
@@ -609,9 +613,20 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       InforttsTab(label: "Settings", icon: Icons.settings_outlined, builder: (_) => _buildSettingsView()),
     ];
     if (widget.showSplash) {
-      Timer(const Duration(milliseconds: 1200), () {
+      Timer(const Duration(milliseconds: 1400), () {
         if (mounted) {
-          setState(() { _showSplash = false; });
+          _minSplashDurationElapsed = true;
+          _checkReadyToDismissSplash();
+        }
+      });
+      // Fallback timer to prevent permanent splash hold on network timeouts
+      Timer(const Duration(seconds: 6), () {
+        if (mounted && _showSplash) {
+          setState(() {
+            _isInitialAuthReady = true;
+            _minSplashDurationElapsed = true;
+            _showSplash = false;
+          });
         }
       });
     }
@@ -667,7 +682,20 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         _authSession = current;
         _isAuthenticated = current?.authenticated ?? false;
         _savedAccounts = InforttsAuthManager.instance.savedAccounts;
+        _isInitialAuthReady = true;
       });
+      _checkReadyToDismissSplash();
+    }
+  }
+
+  void _checkReadyToDismissSplash() {
+    if (!mounted) return;
+    if (_minSplashDurationElapsed && _isInitialAuthReady) {
+      if (_showSplash) {
+        setState(() {
+          _showSplash = false;
+        });
+      }
     }
   }
 
@@ -838,6 +866,10 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   }
 
   void _enterGuestMode() {
+    if (!widget.allowGuest) {
+      showErrorSnackBar(context, "Guest access is disabled for this application. Please sign in with your verified Infortts account.");
+      return;
+    }
     InforttsAuthManager.instance.enterGuestMode();
   }
 
@@ -1019,7 +1051,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
 
   @override
   Widget build(BuildContext context) {
-    if (_showSplash) return _buildSplashView();
+    if (_showSplash || (widget.requireAuth && !_isInitialAuthReady)) return _buildSplashView();
     if (widget.requireAuth && (!_isAuthenticated || _authSession?.authenticated != true)) {
       return _buildAuthView();
     }
