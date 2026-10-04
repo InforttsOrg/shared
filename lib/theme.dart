@@ -8,9 +8,70 @@ import 'package:google_fonts/google_fonts.dart';
 final ValueNotifier<Brightness> acousticBrightness =
     ValueNotifier<Brightness>(Brightness.dark);
 
+/// Global dynamic theme override configuration for OTA theming
+final ValueNotifier<AcousticDynamicThemeConfig?> acousticDynamicTheme =
+    ValueNotifier<AcousticDynamicThemeConfig?>(null);
+
+/// Configuration model for OTA dynamic theming and per-app styling
+class AcousticDynamicThemeConfig {
+  final Color? primaryColor;
+  final Color? secondaryColor;
+  final Color? darkBg;
+  final Color? darkPanelBg;
+  final Color? lightBg;
+  final Color? lightPanelBg;
+  final Color? warnColor;
+  final String? fontFamily;
+  final double? cardBorderRadius;
+
+  const AcousticDynamicThemeConfig({
+    this.primaryColor,
+    this.secondaryColor,
+    this.darkBg,
+    this.darkPanelBg,
+    this.lightBg,
+    this.lightPanelBg,
+    this.warnColor,
+    this.fontFamily,
+    this.cardBorderRadius,
+  });
+
+  factory AcousticDynamicThemeConfig.fromJson(Map<String, dynamic> json) {
+    Color? parseColor(dynamic val) {
+      if (val is String && val.startsWith("#")) {
+        final hex = val.replaceFirst("#", "");
+        if (hex.length == 6) return Color(int.parse("0xFF$hex"));
+        if (hex.length == 8) return Color(int.parse("0x$hex"));
+      }
+      return null;
+    }
+
+    return AcousticDynamicThemeConfig(
+      primaryColor: parseColor(json['primary_color']),
+      secondaryColor: parseColor(json['secondary_color']),
+      darkBg: parseColor(json['dark_bg']),
+      darkPanelBg: parseColor(json['dark_panel_bg']),
+      lightBg: parseColor(json['light_bg']),
+      lightPanelBg: parseColor(json['light_panel_bg']),
+      warnColor: parseColor(json['warn_color']),
+      fontFamily: json['font_family'] as String?,
+      cardBorderRadius: (json['border_radius'] is num) ? (json['border_radius'] as num).toDouble() : null,
+    );
+  }
+}
+
 /// The official, trademarked Infortts™ Acoustic-Refraction™ / Rocky-Vision™ Color Palette.
 class AcousticColors {
   static bool get isLight => acousticBrightness.value == Brightness.light;
+  static AcousticDynamicThemeConfig? get _dynamic => acousticDynamicTheme.value;
+
+  static void applyDynamicTheme(AcousticDynamicThemeConfig config) {
+    acousticDynamicTheme.value = config;
+  }
+
+  static void resetDynamicTheme() {
+    acousticDynamicTheme.value = null;
+  }
 
   // ---- ACES Crushed Blacks & Carbon Base (Dark palette) ----
   static const Color blackDark = Color(0xFF05070C);        // Deepest desaturated base
@@ -26,11 +87,11 @@ class AcousticColors {
   static const Color panelBgLight = Color(0xFFF1F5F9);     // Slate 100 panel fill
   static const Color activeCardLight = Color(0xFFE2E8F0);  // Slate 200 highlighted panel
 
-  // Dynamic Base Getters
-  static Color get black => isLight ? blackLight : blackDark;
+  // Dynamic Base Getters (OTA Adaptive)
+  static Color get black => isLight ? (_dynamic?.lightBg ?? blackLight) : (_dynamic?.darkBg ?? blackDark);
   static Color get obsidian => isLight ? obsidianLight : obsidianDark;
-  static Color get darkCarbon => isLight ? darkCarbonLight : darkCarbonDark;
-  static Color get panelBg => isLight ? panelBgLight : panelBgDark;
+  static Color get darkCarbon => isLight ? (_dynamic?.lightBg ?? darkCarbonLight) : (_dynamic?.darkBg ?? darkCarbonDark);
+  static Color get panelBg => isLight ? (_dynamic?.lightPanelBg ?? panelBgLight) : (_dynamic?.darkPanelBg ?? panelBgDark);
   static Color get activeCard => isLight ? activeCardLight : activeCardDark;
 
   // ---- Desaturated Midtones (Cool Slate) ----
@@ -47,15 +108,15 @@ class AcousticColors {
   static Color get titanium => isLight ? titaniumLight : titaniumDark;
 
   // ---- Motivated Emissives (Acoustic Cyan & Warm Warnings) ----
-  static const Color sonarCyan = Color(0xFF00D2FF);     // Active state
-  static const Color sonarCyanDim = Color(0xFF005566);  // Idle/ambient shadow glow
-  static const Color sonarBlue = Color(0xFF0066FF);     // Low-frequency active state
-  static const Color warnOrange = Color(0xFFF97316);    // Low-saturation warning
+  static Color get sonarCyan => _dynamic?.primaryColor ?? const Color(0xFF00D2FF);     // Active state
+  static Color get sonarCyanDim => const Color(0xFF005566);  // Idle/ambient shadow glow
+  static Color get sonarBlue => _dynamic?.secondaryColor ?? const Color(0xFF0066FF);     // Low-frequency active state
+  static Color get warnOrange => _dynamic?.warnColor ?? const Color(0xFFF97316);    // Low-saturation warning
 
   // Light theme colors
-  static const Color lightBackground = Color(0xFFF8FAFC);   // Slate 50
+  static Color get lightBackground => _dynamic?.lightBg ?? const Color(0xFFF8FAFC);   // Slate 50
   static const Color lightSurface = Color(0xFFFFFFFF);      // White
-  static const Color lightSurfaceVariant = Color(0xFFF1F5F9); // Slate 100
+  static Color get lightSurfaceVariant => _dynamic?.lightPanelBg ?? const Color(0xFFF1F5F9); // Slate 100
   static const Color lightOnBackground = Color(0xFF0F172A);  // Slate 900
   static const Color lightOnSurface = Color(0xFF1E293B);     // Slate 800
   static const Color lightOutline = Color(0xFFCBD5E1);       // Slate 300

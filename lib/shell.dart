@@ -33,13 +33,32 @@ class InforttsTab {
   final IconData icon;
   final WidgetBuilder builder;
   final Widget? iconWidget;
+  final List<String>? requiredRoles;
+  final List<String>? requiredPermissions;
 
   const InforttsTab({
     required this.label,
     required this.icon,
     required this.builder,
     this.iconWidget,
+    this.requiredRoles,
+    this.requiredPermissions,
   });
+
+  bool isAuthorized(AuthSession? session) {
+    if (session == null) {
+      return requiredRoles == null || requiredRoles!.isEmpty;
+    }
+    if (requiredRoles != null && requiredRoles!.isNotEmpty) {
+      if (!session.hasAnyRole(requiredRoles!)) return false;
+    }
+    if (requiredPermissions != null && requiredPermissions!.isNotEmpty) {
+      for (final p in requiredPermissions!) {
+        if (!session.hasPermission(p)) return false;
+      }
+    }
+    return true;
+  }
 }
 
 /// Interactive, procedural 3D Emblem representing ancient Earth lifeforms or structures.
@@ -580,7 +599,12 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   int? _dismissedPatchNumber;
   StreamSubscription<InforttsNotificationEvent>? _notificationSub;
 
-  late final List<InforttsTab> _tabs;
+  late final List<InforttsTab> _allTabs;
+
+  List<InforttsTab> get _tabs {
+    final filtered = _allTabs.where((t) => t.isAuthorized(_authSession)).toList();
+    return filtered.isNotEmpty ? filtered : _allTabs;
+  }
 
   @override
   void dispose() {
@@ -607,7 +631,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     InforttsAuthManager.instance.sessionNotifier.addListener(_onAuthSessionChanged);
     InforttsAuthManager.instance.accountsNotifier.addListener(_onAccountsChanged);
 
-    _tabs = [
+    _allTabs = [
       if (widget.additionalTabs != null)
         ...widget.additionalTabs!
       else ...[
@@ -669,6 +693,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       setState(() {
         _authSession = current;
         _isAuthenticated = current?.authenticated ?? false;
+        if (_activeTab >= _tabs.length) {
+          _activeTab = 0;
+        }
       });
     }
   }
@@ -828,14 +855,16 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   void _checkForUrlToken() async {
     final token = getTokenFromUrl();
     if (token != null && token.isNotEmpty) {
+      clearUrlToken();
       try {
         final session = await _authClient.session(token);
         if (session.authenticated) {
           await InforttsAuthManager.instance.saveSession(session);
         }
-        clearUrlToken();
       } catch (e) {
         debugPrint("Auth session check failed: $e");
+      } finally {
+        clearUrlToken();
       }
     }
   }
@@ -1083,14 +1112,14 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
 
   @override
   Widget build(BuildContext context) {
-    if (_showSplash || (widget.requireAuth && !_isInitialAuthReady)) return _buildSplashView();
-    if (widget.requireAuth && (!_isAuthenticated || _authSession?.authenticated != true)) {
-      return _buildAuthView();
-    }
-
     return ValueListenableBuilder<Brightness>(
       valueListenable: acousticBrightness,
       builder: (context, brightness, _) {
+        if (_showSplash || (widget.requireAuth && !_isInitialAuthReady)) return _buildSplashView();
+        if (widget.requireAuth && (!_isAuthenticated || _authSession?.authenticated != true)) {
+          return _buildAuthView();
+        }
+
         return PopScope(
           canPop: false,
           onPopInvokedWithResult: (didPop, result) {
@@ -2746,8 +2775,9 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
 class _SplashGridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
+    final effectiveIsLight = AcousticColors.isLight;
     final paint = Paint()
-      ..color = AcousticColors.sonarCyan.withOpacity(0.03)
+      ..color = effectiveIsLight ? const Color(0xFF64748B).withValues(alpha: 0.08) : AcousticColors.sonarCyan.withValues(alpha: 0.03)
       ..strokeWidth = 0.5;
     for (double x = 0; x < size.width; x += 40) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), paint);
@@ -2758,7 +2788,7 @@ class _SplashGridPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => true;
 }
 
 void showTopSnackBar(

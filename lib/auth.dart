@@ -61,6 +61,52 @@ class AuthSession {
   String? get provider => (profile?['provider'] as String?) ?? (isGuest ? 'guest' : 'glycocalyx');
   String? get avatarUrl => (profile?['photo_url'] as String?) ?? (profile?['avatar_url'] as String?);
 
+  // --- Glycocalyx 5-Tier RBAC Taxonomy ---
+  List<String> get roles {
+    final rawRoles = profile?['roles'];
+    if (rawRoles is List) {
+      return rawRoles.map((e) => e.toString().toLowerCase().trim()).toList();
+    }
+    if (role != null && role!.isNotEmpty) {
+      return [role!.toLowerCase().trim()];
+    }
+    return isGuest ? ['guest'] : ['client'];
+  }
+
+  List<String> get permissions {
+    final rawPerms = profile?['permissions'];
+    if (rawPerms is List) {
+      return rawPerms.map((e) => e.toString().toLowerCase().trim()).toList();
+    }
+    return const [];
+  }
+
+  bool hasRole(String targetRole) {
+    final t = targetRole.toLowerCase().trim();
+    if (t == 'guest') return isGuest;
+    if (roles.contains('superadmin')) return true; // Superadmin has universal clearance
+    return roles.contains(t);
+  }
+
+  bool hasAnyRole(List<String> targetRoles) {
+    if (roles.contains('superadmin')) return true;
+    for (final r in targetRoles) {
+      if (hasRole(r)) return true;
+    }
+    return false;
+  }
+
+  bool hasPermission(String permission) {
+    if (roles.contains('superadmin')) return true;
+    return permissions.contains(permission.toLowerCase().trim());
+  }
+
+  bool get isSuperadmin => hasRole('superadmin');
+  bool get isEngineer => hasAnyRole(['superadmin', 'engineer']);
+  bool get isTrader => hasAnyRole(['superadmin', 'engineer', 'trader']);
+  bool get isPartner => hasAnyRole(['superadmin', 'partner']);
+  bool get isClient => !isGuest;
+
   factory AuthSession.fromJson(Map<String, dynamic> json) {
     return AuthSession(
       userId: json['user_id'] as String? ?? json['id'] as String? ?? '',
