@@ -928,7 +928,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       return;
     }
 
-    // Native (Android / iOS / macOS): Native Google Sign-In with NO external browser redirects
+    // Native (Android / iOS / macOS): Try Native Google Sign-In first
     try {
       final session = await InforttsAuthManager.instance.signInWithGoogleNative();
       if (session == null) {
@@ -946,7 +946,32 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         );
       }
     } catch (e) {
-      debugPrint("Native Google Sign-In error: $e");
+      debugPrint("Native Google Sign-In error: $e. Initiating browser OAuth fallback...");
+      // Fallback to web browser OAuth flow on native platform
+      try {
+        final appName = widget.appName.toLowerCase().replaceAll(' ', '');
+        final redirectScheme = '$appName://auth/callback';
+        final authUrl = await _authClient.login(
+          provider: 'google',
+          redirect: redirectScheme,
+        );
+        final uri = Uri.parse(authUrl);
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          if (mounted) {
+            showTopSnackBar(
+              context,
+              title: "BROWSER AUTHENTICATION",
+              message: "Complete Google Sign-In in your browser to return to ${widget.appName}",
+              icon: Icons.open_in_browser,
+              color: AcousticColors.sonarCyan,
+            );
+          }
+          return;
+        }
+      } catch (fallbackError) {
+        debugPrint("Browser OAuth fallback error: $fallbackError");
+      }
       if (mounted) {
         showErrorSnackBar(context, 'Google Sign-In: ${e.toString().replaceAll('Exception: ', '')}');
       }
