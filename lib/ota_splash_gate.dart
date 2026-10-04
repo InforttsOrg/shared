@@ -7,16 +7,28 @@ import 'brand.dart';
 import 'cdn_ota_engine.dart';
 import 'theme.dart';
 
+/// State of the OTA Gate during startup lifecycle.
+class InforttsOtaState {
+  final bool isReady;
+  final String statusText;
+  final double progress;
+  final String versionDisplay;
+
+  const InforttsOtaState({
+    required this.isReady,
+    required this.statusText,
+    required this.progress,
+    required this.versionDisplay,
+  });
+}
+
 /// Infortts Universal OTA Splash Gate
 /// 
-/// Intercepts app startup during the branded splash screen across ALL Infortts apps.
-/// Concurrently checks, downloads, and applies OTA differential patches from the CDN
-/// before transitioning smoothly to the destination screen (Login/AppShell/Dashboard).
-/// 
-/// Strict Invariants:
-/// 1. Guaranteed Watchdog: Never locks or hangs the app (enforces strict timeout fallback).
-/// 2. Offline-First: Gracefully boots into existing app state if offline or up-to-date.
-/// 3. Zero Jank: Hardware-accelerated smooth cross-fade into destination widget.
+/// Decoupled Architecture:
+/// 1. Headless OTA Lifecycle Engine: Checks CDN for patches, downloads differential binaries,
+///    and handles watchdogs without coupling to a specific UI.
+/// 2. Custom Presentation Layer: Apps can supply their own [splashBuilder] (e.g. Care4U medical theme,
+///    Waptia fashion/storefront theme, Mitochondria trading HUD) or rely on the theme-aware default.
 class InforttsOtaSplashGate extends StatefulWidget {
   final String appName;
   final String? appVersion;
@@ -26,6 +38,14 @@ class InforttsOtaSplashGate extends StatefulWidget {
   final Duration minDisplayDuration;
   final Duration maxTimeout;
   final VoidCallback? onUpdateInstalled;
+  
+  /// Optional custom splash screen builder for completely decoupled, app-specific UI.
+  final Widget Function(BuildContext context, InforttsOtaState state)? splashBuilder;
+
+  /// Optional theme styling overrides for default splash view
+  final Color? backgroundColor;
+  final Color? accentColor;
+  final Widget? logoWidget;
 
   const InforttsOtaSplashGate({
     super.key,
@@ -37,6 +57,10 @@ class InforttsOtaSplashGate extends StatefulWidget {
     this.minDisplayDuration = Duration.zero,
     this.maxTimeout = const Duration(milliseconds: 1500),
     this.onUpdateInstalled,
+    this.splashBuilder,
+    this.backgroundColor,
+    this.accentColor,
+    this.logoWidget,
   });
 
   @override
@@ -101,55 +125,40 @@ class _InforttsOtaSplashGateState extends State<InforttsOtaSplashGate>
           });
         }
       } catch (_) {
-        if (mounted && _versionDisplay.isEmpty) {
-          setState(() {
-            _versionDisplay = 'v2.06.00+20600';
-          });
-        }
+        _versionDisplay = 'v1.0.0';
       }
     }
 
-    // 3. Execute OTA Check & Patch Application Concurrently
+    // 3. Fast OTA Interception Check via Infortts CDN Engine
     try {
-      if (mounted) {
-        setState(() {
-          _statusText = 'SYNCHRONIZING NEURAL OTA REGISTRY...';
-          _progressValue = 0.4;
-        });
-      }
+      if (!kIsWeb) {
+        if (mounted) {
+          setState(() {
+            _statusText = 'CHECKING RELEASES...';
+            _progressValue = 0.45;
+          });
+        }
 
-      final engine = InforttsCdnOtaEngine(
-        appName: widget.appName,
-        appVersion: widget.appVersion ?? '2.06.00',
-      );
+        final updateAvailable = await InforttsCdnOtaEngine.instance
+            .checkForUpdate(appName: widget.appName)
+            .timeout(const Duration(milliseconds: 700), onTimeout: () => false);
 
-      final manifest = await engine.fetchManifest().timeout(const Duration(seconds: 2));
+        if (updateAvailable && mounted) {
+          setState(() {
+            _statusText = 'APPLYING HOTFIX...';
+            _progressValue = 0.75;
+          });
 
-      if (manifest != null) {
-        final localPatch = await engine.getLocalPatchNumber();
-        if (manifest.latestPatch > localPatch) {
-          if (mounted) {
-            setState(() {
-              _statusText = 'DOWNLOADING PATCH v${manifest.version} (#${manifest.latestPatch})...';
-              _progressValue = 0.75;
-            });
-          }
-
-          final success = await engine.downloadAndApplyPatch(manifest, onStatusChanged: (status, patch) {
-            if (mounted) {
-              if (status == InforttsCdnOtaStatus.downloading) {
+          final success = await InforttsCdnOtaEngine.instance.downloadAndApplyPatch(
+            appName: widget.appName,
+            onProgress: (p) {
+              if (mounted) {
                 setState(() {
-                  _statusText = 'APPLYING DIFFERENTIAL PATCH...';
-                  _progressValue = 0.88;
-                });
-              } else if (status == InforttsCdnOtaStatus.installed) {
-                setState(() {
-                  _statusText = 'PATCH INSTALLED • VERIFYING INTEGRITY...';
-                  _progressValue = 1.0;
+                  _progressValue = 0.75 + (p * 0.25);
                 });
               }
-            }
-          }).timeout(const Duration(seconds: 3));
+            },
+          ).timeout(const Duration(seconds: 3), onTimeout: () => false);
 
           if (success) {
             widget.onUpdateInstalled?.call();
@@ -188,27 +197,48 @@ class _InforttsOtaSplashGateState extends State<InforttsOtaSplashGate>
 
   @override
   Widget build(BuildContext context) {
+    final otaState = InforttsOtaState(
+      isReady: _isReady,
+      statusText: _statusText,
+      progress: _progressValue,
+      versionDisplay: _versionDisplay,
+    );
+
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 450),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
-      child: _isReady ? widget.child : _buildSplashScaffold(context),
+      child: _isReady
+          ? widget.child
+          : (widget.splashBuilder != null
+              ? widget.splashBuilder!(context, otaState)
+              : _buildSplashScaffold(context)),
     );
   }
 
   Widget _buildSplashScaffold(BuildContext context) {
     final title = widget.appNameDisplay ?? widget.appName.toUpperCase();
-    final subtitle = widget.subtitle ?? 'NEURAL ECOSYSTEM TERMINAL';
+    final subtitle = widget.subtitle ?? 'INFORTTS ECOSYSTEM APP';
+
+    final isLight = AcousticColors.isLight;
+    final bgColor = widget.backgroundColor ?? (isLight ? AcousticColors.lightBackground : AcousticColors.blackDark);
+    final accent = widget.accentColor ?? AcousticColors.sonarCyan;
+    final textColor = isLight ? AcousticColors.titaniumLight : AcousticColors.titaniumDark;
+    final subtextColor = isLight ? AcousticColors.steelLight : AcousticColors.steelDark;
 
     return Scaffold(
       key: const ValueKey('infortts_ota_splash_screen'),
-      backgroundColor: AcousticColors.blackDark,
+      backgroundColor: bgColor,
       body: Stack(
         children: [
-          // Background Acoustic Grid & Ambient Radial Glow
+          // Background Grid & Radial Glow
           Positioned.fill(
             child: CustomPaint(
-              painter: _AcousticSplashGridPainter(pulse: _pulseAnimation),
+              painter: _AcousticSplashGridPainter(
+                pulse: _pulseAnimation,
+                isLight: isLight,
+                accentColor: accent,
+              ),
             ),
           ),
 
@@ -219,100 +249,112 @@ class _InforttsOtaSplashGateState extends State<InforttsOtaSplashGate>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Animated Neural Core Icon
-                  AnimatedBuilder(
-                    animation: _pulseAnimation,
-                    builder: (context, child) {
-                      return Container(
-                        width: 88,
-                        height: 88,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [
-                              AcousticColors.sonarCyan.withAlpha((255 * (0.25 + 0.15 * _pulseAnimation.value)).toInt()),
-                              AcousticColors.panelBgDark,
-                              AcousticColors.blackDark,
-                            ],
-                            stops: const [0.0, 0.7, 1.0],
-                          ),
-                          border: Border.all(
-                            color: AcousticColors.sonarCyan.withAlpha((255 * (0.6 + 0.4 * _pulseAnimation.value)).toInt()),
-                            width: 1.5,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AcousticColors.sonarCyan.withAlpha((255 * (0.2 * _pulseAnimation.value)).toInt()),
-                              blurRadius: 24,
-                              spreadRadius: 2,
+                  // Animated Logo / Core Icon
+                  if (widget.logoWidget != null)
+                    widget.logoWidget!
+                  else
+                    AnimatedBuilder(
+                      animation: _pulseAnimation,
+                      builder: (context, child) {
+                        return Container(
+                          width: 88,
+                          height: 88,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: RadialGradient(
+                              colors: [
+                                accent.withAlpha((255 * (0.25 + 0.15 * _pulseAnimation.value)).toInt()),
+                                isLight ? Colors.white : AcousticColors.panelBgDark,
+                                bgColor,
+                              ],
+                              stops: const [0.0, 0.7, 1.0],
                             ),
-                          ],
-                        ),
-                        child: Center(
-                          child: Icon(
-                            Icons.bolt_rounded,
-                            size: 42,
-                            color: AcousticColors.sonarCyan,
+                            border: Border.all(
+                              color: accent.withAlpha((255 * (0.6 + 0.4 * _pulseAnimation.value)).toInt()),
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: accent.withAlpha((255 * (0.2 * _pulseAnimation.value)).toInt()),
+                                blurRadius: 24,
+                                spreadRadius: 2,
+                              ),
+                            ],
                           ),
-                        ),
-                      );
-                    },
-                  ),
-
+                          child: Center(
+                            child: Icon(
+                              Icons.all_inclusive_rounded,
+                              size: 40,
+                              color: accent,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   const SizedBox(height: 28),
 
-                  // App Title
+                  // App Name Title
                   Text(
                     title,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.jetBrainsMono(
-                      color: AcousticColors.titanium,
+                    style: GoogleFonts.outfit(
                       fontSize: 22,
                       fontWeight: FontWeight.w800,
+                      color: textColor,
                       letterSpacing: 4.0,
                     ),
                   ),
-
                   const SizedBox(height: 6),
 
-                  // Subtitle
+                  // Subtitle / Architecture Role
                   Text(
                     subtitle,
-                    textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(
-                      color: AcousticColors.steel,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.8,
+                    style: GoogleFonts.outfit(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: subtextColor,
+                      letterSpacing: 2.0,
                     ),
                   ),
-
                   const SizedBox(height: 36),
 
-                  // OTA Status Progress Bar
+                  // OTA Status & Progress Bar
                   SizedBox(
-                    width: 240,
+                    width: 220,
                     child: Column(
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
                             value: _progressValue,
-                            minHeight: 3,
-                            backgroundColor: AcousticColors.activeCardDark,
-                            valueColor: AlwaysStoppedAnimation<Color>(AcousticColors.sonarCyan),
+                            minHeight: 3.5,
+                            backgroundColor: isLight
+                                ? AcousticColors.midGrayLight.withValues(alpha: 0.2)
+                                : AcousticColors.midGrayDark.withValues(alpha: 0.2),
+                            valueColor: AlwaysStoppedAnimation<Color>(accent),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          _statusText,
-                          textAlign: TextAlign.center,
-                          style: GoogleFonts.jetBrainsMono(
-                            color: AcousticColors.sonarCyan,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 0.8,
-                          ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              _statusText,
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 8.5,
+                                fontWeight: FontWeight.bold,
+                                color: subtextColor,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            Text(
+                              _versionDisplay,
+                              style: GoogleFonts.jetBrainsMono(
+                                fontSize: 8.5,
+                                color: accent,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -321,53 +363,48 @@ class _InforttsOtaSplashGateState extends State<InforttsOtaSplashGate>
               ),
             ),
           ),
-
-          // Bottom Trademark Watermark & Version
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 32,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const InforttsWatermark(isDark: true, size: 11),
-                const SizedBox(height: 6),
-                Text(
-                  _versionDisplay.isNotEmpty ? _versionDisplay : 'INFORTTS CDN OTA ENGINE',
-                  style: GoogleFonts.jetBrainsMono(
-                    color: AcousticColors.midGray,
-                    fontSize: 10,
-                    letterSpacing: 1.0,
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 }
 
-/// Dynamic Cybernetic Background Grid with Motivated Cyan Pulses
 class _AcousticSplashGridPainter extends CustomPainter {
   final Animation<double> pulse;
+  final bool isLight;
+  final Color accentColor;
 
-  _AcousticSplashGridPainter({required this.pulse}) : super(repaint: pulse);
+  _AcousticSplashGridPainter({
+    required this.pulse,
+    this.isLight = false,
+    this.accentColor = AcousticColors.sonarCyan,
+  }) : super(repaint: pulse);
 
   @override
   void paint(Canvas canvas, Size size) {
     final gridPaint = Paint()
-      ..color = const Color(0xFF152238).withAlpha((255 * (0.35 + 0.15 * pulse.value)).toInt())
-      ..strokeWidth = 0.75;
+      ..color = (isLight ? Colors.black : Colors.white).withValues(alpha: isLight ? 0.03 : 0.02)
+      ..strokeWidth = 1.0;
 
-    const double step = 36.0;
-    for (double x = 0; x < size.width; x += step) {
+    const gridSize = 40.0;
+    for (double x = 0; x < size.width; x += gridSize) {
       canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
     }
-    for (double y = 0; y < size.height; y += step) {
+    for (double y = 0; y < size.height; y += gridSize) {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
     }
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final glowPaint = Paint()
+      ..shader = RadialGradient(
+        colors: [
+          accentColor.withAlpha((255 * (0.10 + 0.05 * pulse.value)).toInt()),
+          Colors.transparent,
+        ],
+        stops: const [0.0, 1.0],
+      ).createShader(Rect.fromCircle(center: center, radius: size.width * 0.6));
+
+    canvas.drawCircle(center, size.width * 0.6, glowPaint);
   }
 
   @override
