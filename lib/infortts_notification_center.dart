@@ -249,7 +249,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
               ),
             ),
           IconButton(
-            icon: const Icon(Icons.refresh_rounded, size: 18, color: AcousticColors.steel),
+            icon: Icon(Icons.refresh_rounded, size: 18, color: AcousticColors.steel),
             tooltip: "Refresh Feed",
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -257,7 +257,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
           ),
           const SizedBox(width: 6),
           IconButton(
-            icon: const Icon(Icons.close_rounded, size: 18, color: AcousticColors.steel),
+            icon: Icon(Icons.close_rounded, size: 18, color: AcousticColors.steel),
             tooltip: "Close",
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -353,7 +353,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
                 decoration: InputDecoration(
                   hintText: "Search symbol, title or topic...",
                   hintStyle: GoogleFonts.outfit(color: AcousticColors.midGray, fontSize: 10.5),
-                  prefixIcon: const Icon(Icons.search_rounded, size: 14, color: AcousticColors.midGray),
+                  prefixIcon: Icon(Icons.search_rounded, size: 14, color: AcousticColors.midGray),
                   prefixIconConstraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                   contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
                   filled: true,

@@ -591,11 +591,24 @@ class InforttsNotificationService extends ChangeNotifier {
     );
   }
 
+  /// Stop the SSE stream, its reconnect backoff, and the 60s backup poll.
+  ///
+  /// Call this when the owning widget is disposed. Unlike [dispose] this leaves the
+  /// singleton and its [ChangeNotifier] usable, and clears [_initialized] so a later
+  /// [initialize] re-arms the listeners.
+  void stopStreamListener() {
+    _streamClient?.close();
+    _streamClient = null;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _pollTimer?.cancel();
+    _pollTimer = null;
+    _initialized = false;
+  }
+
   @override
   void dispose() {
-    _streamClient?.close();
-    _reconnectTimer?.cancel();
-    _pollTimer?.cancel();
+    stopStreamListener();
     _eventController.close();
     super.dispose();
   }

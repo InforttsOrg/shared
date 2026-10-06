@@ -586,6 +586,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   void dispose() {
     _otaCronTimer?.cancel();
     _notificationSub?.cancel();
+    InforttsNotificationService.instance.stopStreamListener();
     inforttsTabController.removeListener(_onTabChangedByController);
     InforttsAuthManager.instance.sessionNotifier.removeListener(_onAuthSessionChanged);
     InforttsAuthManager.instance.accountsNotifier.removeListener(_onAccountsChanged);

@@ -341,44 +341,58 @@ class InforttsVersionBumpResult {
 }
 
 class InforttsVersionHelper {
+  /// Normalize a major/minor component to the canonical 2-digit zero-padded form (e.g. 2 -> "02").
+  static String _padMajor(String? raw) =>
+      (int.tryParse(raw ?? '') ?? 2).toString().padLeft(2, '0');
+
   /// Extract base version (e.g. "2.06.00" from "2.06.08" or "2.06.00+20600")
+  ///
+  /// The minor component is re-padded so that legacy unpadded inputs such as "2.2.0"
+  /// normalize to the canonical "2.02.00" scheme used by the OTA manifest keys.
   static String getBaseVersion(String rawVersion) {
     if (rawVersion.isEmpty) return '2.06.00';
     final clean = rawVersion.split('+').first;
     final parts = clean.split('.');
     if (parts.length >= 3) {
-      return '${parts[0]}.${parts[1]}.00';
+      return '${parts[0]}.${_padMajor(parts[1])}.00';
     }
     return clean;
   }
 
   /// Calculate bumped version & build number from base values and patch number
+  ///
+  /// Following global Infortts scheme: epoch.2-digit-major.2-digit-minor (epoch is 2,
+  /// e.g. 2.02.00 or 2.02.01). The build number is the canonical version without dots
+  /// (e.g. "2.02.03" -> 20203).
   static InforttsVersionBumpResult calculateBump({
     required String baseVersion,
     required int baseBuild,
     required int patchNumber,
   }) {
+    final cleanBase = baseVersion.split('+').first;
+    final parts = cleanBase.split('.');
+    final epochStr = parts.isNotEmpty && parts[0].isNotEmpty ? parts[0] : '2';
+    final majorStr = _padMajor(parts.length > 1 ? parts[1] : null);
+    final basePatchInt = parts.length > 2 ? (int.tryParse(parts[2]) ?? 0) : 0;
+    final totalPatch = basePatchInt + (patchNumber > 0 ? patchNumber : 0);
+    final patchStr = totalPatch.toString().padLeft(2, '0');
+    final canonicalVersion = '$epochStr.$majorStr.$patchStr';
+
+    final computedBuild = int.tryParse('$epochStr$majorStr$patchStr') ??
+        (baseBuild + (patchNumber > 0 ? patchNumber : 0));
+
     if (patchNumber <= 0) {
       return InforttsVersionBumpResult(
-        version: baseVersion,
-        buildNumber: baseBuild,
-        displayString: 'v$baseVersion [Base Release]',
+        version: canonicalVersion,
+        buildNumber: computedBuild,
+        displayString: 'v$canonicalVersion+$computedBuild [Base Release]',
       );
     }
 
-    final cleanBase = baseVersion.split('+').first;
-    final parts = cleanBase.split('.');
-    String bumpedVersion = baseVersion;
-    if (parts.length >= 3) {
-      final patchPadded = patchNumber.toString().padLeft(2, '0');
-      bumpedVersion = '${parts[0]}.${parts[1]}.$patchPadded';
-    }
-
-    final bumpedBuild = baseBuild + patchNumber;
     return InforttsVersionBumpResult(
-      version: bumpedVersion,
-      buildNumber: bumpedBuild,
-      displayString: 'v$bumpedVersion+b$bumpedBuild [Infortts CDN OTA #$patchNumber]',
+      version: canonicalVersion,
+      buildNumber: computedBuild,
+      displayString: 'v$canonicalVersion+$computedBuild (Infortts CDN OTA Patch #$patchNumber Active)',
     );
   }
 }

@@ -8,13 +8,17 @@ import 'cdn_ota_engine.dart';
 import 'theme.dart';
 
 /// State of the OTA Gate during startup lifecycle.
-class InforttsOtaState {
+///
+/// Named [InforttsOtaSplashState] rather than [InforttsOtaState] because the latter is the
+/// enum owned by `infortts_ota_service.dart` for the OTA telemetry lifecycle; both are
+/// re-exported by `infortts_shared.dart`, so sharing one name would be an ambiguous export.
+class InforttsOtaSplashState {
   final bool isReady;
   final String statusText;
   final double progress;
   final String versionDisplay;
 
-  const InforttsOtaState({
+  const InforttsOtaSplashState({
     required this.isReady,
     required this.statusText,
     required this.progress,
@@ -40,7 +44,7 @@ class InforttsOtaSplashGate extends StatefulWidget {
   final VoidCallback? onUpdateInstalled;
   
   /// Optional custom splash screen builder for completely decoupled, app-specific UI.
-  final Widget Function(BuildContext context, InforttsOtaState state)? splashBuilder;
+  final Widget Function(BuildContext context, InforttsOtaSplashState state)? splashBuilder;
 
   /// Optional theme styling overrides for default splash view
   final Color? backgroundColor;
@@ -139,9 +143,17 @@ class _InforttsOtaSplashGateState extends State<InforttsOtaSplashGate>
           });
         }
 
-        final updateAvailable = await InforttsCdnOtaEngine.instance
-            .checkForUpdate(appName: widget.appName)
-            .timeout(const Duration(milliseconds: 700), onTimeout: () => false);
+        final engine = InforttsCdnOtaEngine(
+          appName: widget.appName,
+          appVersion: widget.appVersion ?? '1.0.0',
+        );
+
+        final manifest = await engine
+            .fetchManifest()
+            .timeout(const Duration(milliseconds: 700));
+
+        final localPatch = manifest == null ? null : await engine.getLocalPatchNumber();
+        final updateAvailable = manifest != null && manifest.latestPatch > localPatch!;
 
         if (updateAvailable && mounted) {
           setState(() {
@@ -149,16 +161,18 @@ class _InforttsOtaSplashGateState extends State<InforttsOtaSplashGate>
             _progressValue = 0.75;
           });
 
-          final success = await InforttsCdnOtaEngine.instance.downloadAndApplyPatch(
-            appName: widget.appName,
-            onProgress: (p) {
-              if (mounted) {
-                setState(() {
-                  _progressValue = 0.75 + (p * 0.25);
-                });
-              }
-            },
-          ).timeout(const Duration(seconds: 3), onTimeout: () => false);
+          final success = await engine
+              .downloadAndApplyPatch(
+                manifest,
+                onStatusChanged: (status, patch) {
+                  if (mounted && status == InforttsCdnOtaStatus.downloading) {
+                    setState(() {
+                      _progressValue = 0.75 + (patch == null || patch == 0 ? 0.25 : 0.25 * (patch / manifest.latestPatch));
+                    });
+                  }
+                },
+              )
+              .timeout(const Duration(seconds: 3), onTimeout: () => false);
 
           if (success) {
             widget.onUpdateInstalled?.call();
@@ -197,7 +211,7 @@ class _InforttsOtaSplashGateState extends State<InforttsOtaSplashGate>
 
   @override
   Widget build(BuildContext context) {
-    final otaState = InforttsOtaState(
+    final otaState = InforttsOtaSplashState(
       isReady: _isReady,
       statusText: _statusText,
       progress: _progressValue,
