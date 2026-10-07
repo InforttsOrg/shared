@@ -9,3 +9,8 @@
 .dart_tool/
 build/
 *.lock
+
+# Python bytecode & runtime cache (never commit generated artifacts)
+__pycache__/
+*.py[cod]
+cache/
