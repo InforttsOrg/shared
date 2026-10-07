@@ -957,19 +957,20 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           redirect: redirectScheme,
         );
         final uri = Uri.parse(authUrl);
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-          if (mounted) {
-            showTopSnackBar(
-              context,
-              title: "BROWSER AUTHENTICATION",
-              message: "Complete Google Sign-In in your browser to return to ${widget.appName}",
-              icon: Icons.open_in_browser,
-              color: AcousticColors.sonarCyan,
-            );
-          }
-          return;
+        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (!launched) {
+          await launchUrl(uri);
         }
+        if (mounted) {
+          showTopSnackBar(
+            context,
+            title: "BROWSER AUTHENTICATION",
+            message: "Complete Google Sign-In in your browser to return to ${widget.appName}",
+            icon: Icons.open_in_browser,
+            color: AcousticColors.sonarCyan,
+          );
+        }
+        return;
       } catch (fallbackError) {
         debugPrint("Browser OAuth fallback error: $fallbackError");
       }
