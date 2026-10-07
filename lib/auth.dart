@@ -58,6 +58,13 @@ class AuthSession {
 
   String get username => (profile?['username'] as String?) ?? displayName.toLowerCase().replaceAll(' ', '_');
   String? get role => profile?['role'] as String?;
+  bool get isSuperadmin =>
+      role == 'superadmin' ||
+      role == 'admin' ||
+      (profile?['is_superadmin'] == true) ||
+      (profile?['superadmin'] == true) ||
+      email == 'operator@infortts.site' ||
+      (email.isNotEmpty && email.toLowerCase().endsWith('@infortts.com'));
   String? get provider => (profile?['provider'] as String?) ?? (isGuest ? 'guest' : 'glycocalyx');
   String? get avatarUrl => (profile?['photo_url'] as String?) ?? (profile?['avatar_url'] as String?);
 
@@ -323,11 +330,13 @@ class InforttsAuthManager {
         if (!session.isPlaceholder) {
           sessionNotifier.value = session;
           tokenNotifier.value = token;
-          if (!accountsNotifier.value.any((a) => a.userId == session.userId)) {
+          if (session.authenticated && !accountsNotifier.value.any((a) => a.userId == session.userId)) {
             accountsNotifier.value = [session, ...accountsNotifier.value];
           }
-          // Asynchronously validate / sync profile in background
-          unawaited(syncLiveProfile());
+          // Asynchronously validate / sync profile in background for authenticated sessions
+          if (session.authenticated) {
+            unawaited(syncLiveProfile());
+          }
           return;
         }
       }
@@ -456,7 +465,7 @@ class InforttsAuthManager {
   }
 
   /// Enter guest / demo mode.
-  AuthSession enterGuestMode() {
+  AuthSession enterGuestMode({bool persist = true}) {
     final guest = AuthSession(
       userId: 'usr_guest',
       email: '',
@@ -468,6 +477,16 @@ class InforttsAuthManager {
     );
     sessionNotifier.value = guest;
     tokenNotifier.value = null;
+    if (persist) {
+      SharedPreferences.getInstance().then((prefs) {
+        prefs.setString('infortts_auth_userId', 'usr_guest');
+        prefs.setString('infortts_auth_email', '');
+        prefs.remove('infortts_auth_token');
+        if (guest.profile != null) {
+          prefs.setString('infortts_auth_profile', jsonEncode(guest.profile));
+        }
+      }).catchError((_) {});
+    }
     return guest;
   }
 

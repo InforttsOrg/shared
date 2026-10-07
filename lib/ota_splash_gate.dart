@@ -391,8 +391,9 @@ class _AcousticSplashGridPainter extends CustomPainter {
   _AcousticSplashGridPainter({
     required this.pulse,
     this.isLight = false,
-    this.accentColor = AcousticColors.sonarCyan,
-  }) : super(repaint: pulse);
+    Color? accentColor,
+  })  : accentColor = accentColor ?? AcousticColors.sonarCyan,
+        super(repaint: pulse);
 
   @override
   void paint(Canvas canvas, Size size) {

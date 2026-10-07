@@ -141,7 +141,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
               // Notification List
               Expanded(
                 child: service.isLoading && rawList.isEmpty
-                    ? const Center(
+                    ? Center(
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
                           color: AcousticColors.sonarCyan,
@@ -187,7 +187,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
               shape: BoxShape.circle,
               border: Border.all(color: AcousticColors.sonarCyan, width: 0.8),
             ),
-            child: const Icon(Icons.notifications_active_rounded, color: AcousticColors.sonarCyan, size: 18),
+            child: Icon(Icons.notifications_active_rounded, color: AcousticColors.sonarCyan, size: 18),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -242,7 +242,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
               onPressed: () {
                 service.markAllAsRead(category: _selectedCategory == 'ALL' ? null : _selectedCategory);
               },
-              icon: const Icon(Icons.done_all_rounded, size: 14, color: AcousticColors.sonarCyan),
+              icon: Icon(Icons.done_all_rounded, size: 14, color: AcousticColors.sonarCyan),
               label: Text(
                 "Mark all read",
                 style: GoogleFonts.outfit(color: AcousticColors.sonarCyan, fontSize: 10, fontWeight: FontWeight.bold),
@@ -368,7 +368,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
-                    borderSide: const BorderSide(color: AcousticColors.sonarCyan, width: 1.0),
+                    borderSide: BorderSide(color: AcousticColors.sonarCyan, width: 1.0),
                   ),
                 ),
               ),
@@ -599,7 +599,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
               const SizedBox(height: 6),
               Row(
                 children: [
-                  const Icon(Icons.open_in_new_rounded, size: 10, color: AcousticColors.sonarCyan),
+                  Icon(Icons.open_in_new_rounded, size: 10, color: AcousticColors.sonarCyan),
                   const SizedBox(width: 4),
                   Text(
                     "Open details",

@@ -667,9 +667,11 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   void _onAuthSessionChanged() {
     if (mounted) {
       final current = InforttsAuthManager.instance.currentSession;
+      final isValidSession = (current?.authenticated == true) ||
+          (widget.allowGuest && current?.isGuest == true);
       setState(() {
         _authSession = current;
-        _isAuthenticated = current?.authenticated ?? false;
+        _isAuthenticated = isValidSession;
       });
     }
   }
@@ -686,9 +688,11 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
     await InforttsAuthManager.instance.initialize(requireAuth: widget.requireAuth);
     if (mounted) {
       final current = InforttsAuthManager.instance.currentSession;
+      final isValidSession = (current?.authenticated == true) ||
+          (widget.allowGuest && current?.isGuest == true);
       setState(() {
         _authSession = current;
-        _isAuthenticated = current?.authenticated ?? false;
+        _isAuthenticated = isValidSession;
         _savedAccounts = InforttsAuthManager.instance.savedAccounts;
         _isInitialAuthReady = true;
       });
@@ -878,7 +882,20 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       showErrorSnackBar(context, "Guest access is disabled for this application. Please sign in with your verified Infortts account.");
       return;
     }
-    InforttsAuthManager.instance.enterGuestMode();
+    final guest = InforttsAuthManager.instance.enterGuestMode();
+    setState(() {
+      _authSession = guest;
+      _isAuthenticated = true;
+    });
+    if (mounted) {
+      showTopSnackBar(
+        context,
+        title: "GUEST ACCESS",
+        message: "Continuing in guest preview mode.",
+        icon: Icons.person_outline,
+        color: AcousticColors.sonarCyan,
+      );
+    }
   }
 
   Future<void> _fetchLiveProfile() async {
@@ -1086,7 +1103,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   @override
   Widget build(BuildContext context) {
     if (_showSplash || (widget.requireAuth && !_isInitialAuthReady)) return _buildSplashView();
-    if (widget.requireAuth && (!_isAuthenticated || _authSession?.authenticated != true)) {
+    final bool hasValidAccess = (_authSession?.authenticated == true) ||
+        (widget.allowGuest && _authSession?.isGuest == true);
+    if (widget.requireAuth && (!_isAuthenticated || !hasValidAccess)) {
       return _buildAuthView();
     }
 
@@ -1674,7 +1693,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5),
                   ),
                 )
-              else
+              else ...[
                 ElevatedButton.icon(
                   onPressed: _handleGoogleSSO,
                   icon: const Icon(Icons.login_rounded, size: 16),
@@ -1690,6 +1709,22 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5),
                   ),
                 ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _handleLogout,
+                  icon: const Icon(Icons.exit_to_app_rounded, size: 16),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AcousticColors.warnOrange,
+                    side: BorderSide(color: AcousticColors.warnOrange.withOpacity(0.6)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  ),
+                  label: Text(
+                    "EXIT GUEST MODE",
+                    style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

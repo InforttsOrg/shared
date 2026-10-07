@@ -1,6 +1,7 @@
 library infortts_shared;
 
 export 'theme.dart';
+export 'design.dart';
 export 'selection.dart';
 export 'card.dart';
 export 'status.dart';
