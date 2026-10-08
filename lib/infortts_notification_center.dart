@@ -61,13 +61,24 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
   final TextEditingController _searchCtrl = TextEditingController();
   String _searchQuery = '';
 
-  final List<Map<String, dynamic>> _categories = const [
-    {'id': 'ALL', 'label': 'ALL', 'icon': Icons.notifications_none_rounded},
-    {'id': 'INDIAN_STOCKS', 'label': '🇮🇳 INDIAN STOCKS', 'icon': Icons.trending_up_rounded},
-    {'id': 'MACRO', 'label': '🔴 MACRO & FOREX', 'icon': Icons.public_rounded},
-    {'id': 'TRADING', 'label': '⚡ TRADING', 'icon': Icons.bolt_rounded},
-    {'id': 'SYSTEM', 'label': '🛡️ SYSTEM', 'icon': Icons.security_rounded},
-  ];
+  List<Map<String, dynamic>> get _categories {
+    final isMitochondria = widget.appName.toLowerCase().contains('mitochondria');
+    if (isMitochondria) {
+      return const [
+        {'id': 'ALL', 'label': 'ALL', 'icon': Icons.notifications_none_rounded},
+        {'id': 'INDIAN_STOCKS', 'label': '🇮🇳 INDIAN STOCKS', 'icon': Icons.trending_up_rounded},
+        {'id': 'MACRO', 'label': '🔴 MACRO & FOREX', 'icon': Icons.public_rounded},
+        {'id': 'TRADING', 'label': '⚡ TRADING', 'icon': Icons.bolt_rounded},
+        {'id': 'SYSTEM', 'label': '🛡️ SYSTEM', 'icon': Icons.security_rounded},
+      ];
+    }
+    return const [
+      {'id': 'ALL', 'label': 'ALL', 'icon': Icons.notifications_none_rounded},
+      {'id': 'UPDATES', 'label': '🚀 PACKAGE UPDATES', 'icon': Icons.system_update_rounded},
+      {'id': 'SYSTEM', 'label': '🛡️ SYSTEM & SECURITY', 'icon': Icons.security_rounded},
+      {'id': 'ECOSYSTEM', 'label': '🌐 ECOSYSTEM FLEET', 'icon': Icons.hub_rounded},
+    ];
+  }
 
   @override
   void initState() {
@@ -84,6 +95,8 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
 
   @override
   Widget build(BuildContext context) {
+    final isMitochondria = widget.appName.toLowerCase().contains('mitochondria');
+
     return AnimatedBuilder(
       animation: InforttsNotificationService.instance,
       builder: (context, _) {
@@ -91,6 +104,12 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
         final rawList = service.notifications;
 
         final filteredList = rawList.where((item) {
+          // If this app is not Mitochondria, do not leak Indian Stocks and trading alerts
+          if (!isMitochondria) {
+            if (item.category == 'INDIAN_STOCKS' || item.category == 'MACRO' || item.category == 'TRADING') {
+              return false;
+            }
+          }
           if (_selectedCategory != 'ALL' && item.category != _selectedCategory) {
             return false;
           }
@@ -108,7 +127,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
           return true;
         }).toList();
 
-        final unreadCount = service.unreadCount;
+        final unreadCount = filteredList.where((n) => !n.isRead).length;
 
         return Container(
           decoration: BoxDecoration(
@@ -226,7 +245,9 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
                   ],
                 ),
                 Text(
-                  "Indian Stocks • Macro Events • 1m A+ Scalps • Ecosystem",
+                  widget.appName.toLowerCase().contains('mitochondria')
+                      ? "Indian Stocks • Macro Events • 1m A+ Scalps • Ecosystem"
+                      : "${widget.appName} • Differential OTA Updates • Security & Fleet Alerts",
                   style: GoogleFonts.outfit(color: AcousticColors.midGray, fontSize: 9.5),
                 ),
               ],

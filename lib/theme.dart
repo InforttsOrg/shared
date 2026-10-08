@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Global switch that flips the Acoustic palette between dark and light.
 /// The terminal app paints the whole UI from [AcousticColors], so flipping
@@ -504,3 +505,172 @@ class AcousticTheme {
     return trimmed.isEmpty ? null : trimmed;
   }
 }
+
+/// Unified Infortts Theme State provided by [InforttsThemeProvider].
+class InforttsThemeData {
+  final ThemeMode themeMode;
+  final Brightness resolvedBrightness;
+  final AcousticDynamicThemeConfig? skin;
+  final ThemeData lightTheme;
+  final ThemeData darkTheme;
+  final void Function() toggleTheme;
+  final void Function(ThemeMode mode) setThemeMode;
+  final void Function(Brightness brightness) setBrightness;
+
+  const InforttsThemeData({
+    required this.themeMode,
+    required this.resolvedBrightness,
+    required this.skin,
+    required this.lightTheme,
+    required this.darkTheme,
+    required this.toggleTheme,
+    required this.setThemeMode,
+    required this.setBrightness,
+  });
+
+  bool get isDark => resolvedBrightness == Brightness.dark;
+  bool get isLight => resolvedBrightness == Brightness.light;
+}
+
+class _InforttsThemeInherited extends InheritedWidget {
+  final InforttsThemeData data;
+
+  const _InforttsThemeInherited({
+    required this.data,
+    required super.child,
+  });
+
+  @override
+  bool updateShouldNotify(_InforttsThemeInherited oldWidget) {
+    return data.themeMode != oldWidget.data.themeMode ||
+        data.resolvedBrightness != oldWidget.data.resolvedBrightness ||
+        data.skin != oldWidget.data.skin;
+  }
+}
+
+/// A unified, cross-application theme controller and provider for the Infortts ecosystem.
+///
+/// Automatically synchronizes [acousticBrightness], [acousticDynamicTheme],
+/// persists user preference across app restarts via SharedPreferences,
+/// and allows toggling between Dark, Light, and System modes.
+class InforttsThemeProvider extends StatefulWidget {
+  final Widget child;
+  final AcousticDynamicThemeConfig? skin;
+  final ThemeMode initialThemeMode;
+
+  const InforttsThemeProvider({
+    super.key,
+    required this.child,
+    this.skin,
+    this.initialThemeMode = ThemeMode.dark,
+  });
+
+  static InforttsThemeData of(BuildContext context) {
+    final inherited = context.dependOnInheritedWidgetOfExactType<_InforttsThemeInherited>();
+    if (inherited == null) {
+      throw FlutterError('InforttsThemeProvider.of() called with a context that does not contain InforttsThemeProvider.');
+    }
+    return inherited.data;
+  }
+
+  static InforttsThemeData? maybeOf(BuildContext context) {
+    final inherited = context.dependOnInheritedWidgetOfExactType<_InforttsThemeInherited>();
+    return inherited?.data;
+  }
+
+  @override
+  State<InforttsThemeProvider> createState() => InforttsThemeProviderState();
+}
+
+class InforttsThemeProviderState extends State<InforttsThemeProvider> {
+  static const String _kThemePrefKey = 'infortts_theme_mode';
+  late ThemeMode _themeMode;
+  AcousticDynamicThemeConfig? _skin;
+
+  @override
+  void initState() {
+    super.initState();
+    _themeMode = widget.initialThemeMode;
+    _skin = widget.skin;
+    if (_skin != null) {
+      AcousticColors.applyDynamicTheme(_skin!);
+    }
+    _loadPersistedTheme();
+  }
+
+  Future<void> _loadPersistedTheme() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getString(_kThemePrefKey);
+      if (saved != null) {
+        if (saved == 'light') {
+          _setModeInternal(ThemeMode.light, persist: false);
+        } else if (saved == 'dark') {
+          _setModeInternal(ThemeMode.dark, persist: false);
+        } else if (saved == 'system') {
+          _setModeInternal(ThemeMode.system, persist: false);
+        }
+      } else {
+        _syncAcousticBrightness();
+      }
+    } catch (_) {
+      _syncAcousticBrightness();
+    }
+  }
+
+  void _syncAcousticBrightness() {
+    final Brightness target = _themeMode == ThemeMode.light ? Brightness.light : Brightness.dark;
+    if (acousticBrightness.value != target) {
+      acousticBrightness.value = target;
+    }
+  }
+
+  void _setModeInternal(ThemeMode mode, {bool persist = true}) {
+    if (_themeMode == mode) return;
+    setState(() {
+      _themeMode = mode;
+      _syncAcousticBrightness();
+    });
+    if (persist) {
+      SharedPreferences.getInstance().then((prefs) {
+        final val = mode == ThemeMode.light ? 'light' : (mode == ThemeMode.dark ? 'dark' : 'system');
+        prefs.setString(_kThemePrefKey, val);
+      }).catchError((_) {});
+    }
+  }
+
+  void toggleTheme() {
+    final next = _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
+    _setModeInternal(next);
+  }
+
+  void setThemeMode(ThemeMode mode) {
+    _setModeInternal(mode);
+  }
+
+  void setBrightness(Brightness brightness) {
+    _setModeInternal(brightness == Brightness.light ? ThemeMode.light : ThemeMode.dark);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final resolvedBrightness = _themeMode == ThemeMode.light ? Brightness.light : Brightness.dark;
+
+    final themeData = InforttsThemeData(
+      themeMode: _themeMode,
+      resolvedBrightness: resolvedBrightness,
+      skin: _skin,
+      lightTheme: AcousticTheme.themedLight(skin: _skin),
+      darkTheme: AcousticTheme.themedDark(skin: _skin),
+      toggleTheme: toggleTheme,
+      setThemeMode: setThemeMode,
+      setBrightness: setBrightness,
+    );
+
+    return _InforttsThemeInherited(
+      data: themeData,
+      child: widget.child,
+    );
+  }
+}
+

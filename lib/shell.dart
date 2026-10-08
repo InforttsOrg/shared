@@ -1963,10 +1963,46 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                       },
                     ),
                     Divider(color: AcousticColors.midGray.withOpacity(0.15), height: 1),
+                    ValueListenableBuilder<Brightness>(
+                      valueListenable: acousticBrightness,
+                      builder: (context, brightness, _) {
+                        final isDark = brightness == Brightness.dark;
+                        return ListTile(
+                          leading: Icon(
+                            isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                            color: AcousticColors.sonarCyan,
+                            size: 20,
+                          ),
+                          title: Text("APPEARANCE & THEME", style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.titanium, fontWeight: FontWeight.bold)),
+                          subtitle: Text(
+                            isDark ? "Dark Carbon & Acoustic Refraction" : "Clean Slate Light Theme",
+                            style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray),
+                          ),
+                          trailing: Switch(
+                            value: isDark,
+                            activeColor: AcousticColors.sonarCyan,
+                            onChanged: (_) {
+                              final provider = InforttsThemeProvider.maybeOf(context);
+                              if (provider != null) {
+                                provider.toggleTheme();
+                              } else {
+                                acousticBrightness.value = isDark ? Brightness.light : Brightness.dark;
+                              }
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                    Divider(color: AcousticColors.midGray.withOpacity(0.15), height: 1),
                     ListTile(
                       leading: Icon(Icons.inbox_rounded, color: AcousticColors.sonarCyan, size: 20),
                       title: Text("NOTIFICATION INTELLIGENCE FEED", style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.titanium, fontWeight: FontWeight.bold)),
-                      subtitle: Text("Indian stocks, macro events, trade setups & system notifications", style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray)),
+                      subtitle: Text(
+                        widget.appName.toLowerCase().contains('mitochondria')
+                            ? "Indian stocks, macro events, trade setups & system notifications"
+                            : "Ecosystem updates, OTA releases & cluster telemetry",
+                        style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray),
+                      ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -2965,5 +3001,235 @@ class _TopSnackBarOverlayWidgetState extends State<_TopSnackBarOverlayWidget> wi
       ),
     );
   }
+}
+
+/// Show the centralized Infortts SSO & Credentials login modal bottom sheet.
+Future<void> showInforttsAuthBottomSheet(BuildContext context) async {
+  final emailCtrl = TextEditingController();
+  final passCtrl = TextEditingController();
+  bool isLoading = false;
+  String? errorMsg;
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (dialogCtx, setSheetState) {
+          return Container(
+            margin: EdgeInsets.only(
+              bottom: MediaQuery.of(dialogCtx).viewInsets.bottom,
+            ),
+            decoration: BoxDecoration(
+              color: AcousticColors.darkCarbon,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              border: Border.all(color: AcousticColors.midGray.withOpacity(0.2)),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.shield_outlined, color: AcousticColors.sonarCyan, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            "GLYCOCALYX IAM AUTH",
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 2.0,
+                              color: AcousticColors.titanium,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close, color: AcousticColors.steel, size: 18),
+                        onPressed: () => Navigator.of(dialogCtx).pop(),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    "Sign in to your Infortts account to synchronize installations, remote fleet devices, and enterprise policies.",
+                    style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.steel),
+                  ),
+                  const SizedBox(height: 16),
+                  if (errorMsg != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                      ),
+                      child: Text(
+                        errorMsg!,
+                        style: GoogleFonts.outfit(color: Colors.redAccent, fontSize: 11),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                  OutlinedButton.icon(
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            setSheetState(() {
+                              isLoading = true;
+                              errorMsg = null;
+                            });
+                            try {
+                              final session = await InforttsAuthManager.instance.signInWithGoogleNative();
+                              if (session != null && dialogCtx.mounted) {
+                                Navigator.of(dialogCtx).pop();
+                                showTopSnackBar(
+                                  context,
+                                  title: "AUTHENTICATED",
+                                  message: "Signed in as ${session.displayName}",
+                                  icon: Icons.check_circle_outline,
+                                  color: AcousticColors.sonarCyan,
+                                );
+                              }
+                            } catch (e) {
+                              setSheetState(() {
+                                errorMsg = e.toString().replaceAll("Exception: ", "");
+                              });
+                            } finally {
+                              setSheetState(() {
+                                isLoading = false;
+                              });
+                            }
+                          },
+                    icon: Icon(Icons.security, size: 16, color: AcousticColors.sonarCyan),
+                    label: Text(
+                      "CONTINUE WITH GOOGLE SSO",
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AcousticColors.sonarCyan,
+                        letterSpacing: 1.0,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: AcousticColors.sonarCyan, width: 0.9),
+                      backgroundColor: AcousticColors.sonarCyan.withOpacity(0.06),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(child: Divider(color: AcousticColors.midGray.withOpacity(0.2))),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text("OR CREDENTIALS", style: GoogleFonts.outfit(fontSize: 8, color: AcousticColors.midGray, letterSpacing: 1.0)),
+                      ),
+                      Expanded(child: Divider(color: AcousticColors.midGray.withOpacity(0.2))),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  TextField(
+                    controller: emailCtrl,
+                    style: GoogleFonts.outfit(fontSize: 12, color: AcousticColors.titanium),
+                    decoration: InputDecoration(
+                      labelText: "EMAIL ADDRESS",
+                      hintText: "operator@infortts.site",
+                      hintStyle: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.steel.withOpacity(0.5)),
+                      labelStyle: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray),
+                      filled: true,
+                      fillColor: AcousticColors.black,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: passCtrl,
+                    obscureText: true,
+                    style: GoogleFonts.outfit(fontSize: 12, color: AcousticColors.titanium),
+                    decoration: InputDecoration(
+                      labelText: "PASSWORD",
+                      hintText: "••••••••",
+                      hintStyle: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.steel.withOpacity(0.5)),
+                      labelStyle: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray),
+                      filled: true,
+                      fillColor: AcousticColors.black,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            final email = emailCtrl.text.trim();
+                            final pass = passCtrl.text.trim();
+                            if (email.isEmpty || pass.isEmpty) {
+                              setSheetState(() {
+                                errorMsg = "Email and password are required.";
+                              });
+                              return;
+                            }
+                            setSheetState(() {
+                              isLoading = true;
+                              errorMsg = null;
+                            });
+                            try {
+                              final session = await InforttsAuthManager.instance.signInWithPassword(email, pass);
+                              if (dialogCtx.mounted) {
+                                Navigator.of(dialogCtx).pop();
+                                showTopSnackBar(
+                                  context,
+                                  title: "AUTHENTICATED",
+                                  message: "Signed in as ${session.displayName}",
+                                  icon: Icons.check_circle_outline,
+                                  color: AcousticColors.sonarCyan,
+                                );
+                              }
+                            } catch (e) {
+                              setSheetState(() {
+                                errorMsg = e.toString().replaceAll("Exception: ", "");
+                              });
+                            } finally {
+                              setSheetState(() {
+                                isLoading = false;
+                              });
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AcousticColors.sonarCyan,
+                      foregroundColor: Colors.black,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                          )
+                        : Text(
+                            "SIGN IN WITH PASSWORD",
+                            style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2),
+                          ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
 }
 
