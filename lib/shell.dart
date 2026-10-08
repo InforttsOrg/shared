@@ -2555,7 +2555,13 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
 
       messenger.clearSnackBars();
 
-      if (manifest != null && manifest.latestPatch > currentLocalPatch) {
+      final currentBuild = int.tryParse(_currentBuildNumber) ?? 0;
+      final bool hasNewBuild = manifest != null && manifest.latestBuild > currentBuild && currentBuild > 0;
+      final bool hasNewPatch = manifest != null &&
+          (manifest.latestBuild == currentBuild || currentBuild == 0) &&
+          manifest.latestPatch > currentLocalPatch;
+
+      if (manifest != null && (hasNewBuild || hasNewPatch)) {
         if (mounted) {
           _showNewPatchAvailableModal(context, manifest, cdnEngine, forceReShow: true);
         }

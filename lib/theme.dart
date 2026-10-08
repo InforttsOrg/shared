@@ -260,15 +260,15 @@ class AcousticColors {
   // ---- Desaturated Midtones (Cool Slate) ----
   static const Color midGrayDark = Color(0xFF64748B);       // Borders and subtext (Slate 500)
   static const Color midGrayLight = Color(0xFF94A3B8);      // Borders and subtext in light (Slate 400)
-  static Color get midGray => _dynamic?.midGrayColor ?? (isLight ? midGrayLight : midGrayDark);
+  static Color get midGray => isLight ? midGrayLight : (_dynamic?.midGrayColor ?? midGrayDark);
 
   static const Color steelDark = Color(0xFF94A3B8);         // Body copy (Slate 400)
   static const Color steelLight = Color(0xFF475569);        // Body copy in light (Slate 600)
-  static Color get steel => _dynamic?.steelColor ?? (isLight ? steelLight : steelDark);
+  static Color get steel => isLight ? (_dynamic?.lightSubTextColor ?? steelLight) : (_dynamic?.steelColor ?? steelDark);
 
   static const Color titaniumDark = Color(0xFFE2E8F0);      // High-contrast titles (Slate 200)
   static const Color titaniumLight = Color(0xFF0F172A);     // High-contrast titles in light (Slate 900)
-  static Color get titanium => _dynamic?.titaniumColor ?? (isLight ? titaniumLight : titaniumDark);
+  static Color get titanium => isLight ? (_dynamic?.textOnSurface ?? titaniumLight) : (_dynamic?.titaniumColor ?? titaniumDark);
 
   // ---- Motivated Emissives (Acoustic Cyan & Warm Warnings) ----
   static Color get sonarCyan => _dynamic?.primaryColor ?? const Color(0xFF00D2FF);     // Active state
@@ -619,7 +619,18 @@ class InforttsThemeProviderState extends State<InforttsThemeProvider> {
   }
 
   void _syncAcousticBrightness() {
-    final Brightness target = _themeMode == ThemeMode.light ? Brightness.light : Brightness.dark;
+    Brightness target;
+    if (_themeMode == ThemeMode.light) {
+      target = Brightness.light;
+    } else if (_themeMode == ThemeMode.dark) {
+      target = Brightness.dark;
+    } else {
+      try {
+        target = WidgetsBinding.instance.platformDispatcher.platformBrightness;
+      } catch (_) {
+        target = Brightness.dark;
+      }
+    }
     if (acousticBrightness.value != target) {
       acousticBrightness.value = target;
     }
