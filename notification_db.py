@@ -20,15 +20,22 @@ def _resolve_db_path():
     # Try user home dir first
     home_db = os.path.expanduser("~/.infortts_notifications.db")
     try:
-        # Test if we can open/write to home
-        with open(home_db, "a"):
-            pass
+        c = sqlite3.connect(home_db, timeout=1.0)
+        c.close()
         return home_db
     except Exception:
         pass
     
     # Fallback to local shared directory
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "notifications.db")
+    shared_db = os.path.join(os.path.dirname(os.path.abspath(__file__)), "notifications.db")
+    try:
+        c = sqlite3.connect(shared_db, timeout=1.0)
+        c.close()
+        return shared_db
+    except Exception:
+        pass
+
+    return "/tmp/infortts_notifications.db"
 
 DB_PATH = _resolve_db_path()
 _LOCK = threading.RLock()
