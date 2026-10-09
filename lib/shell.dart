@@ -561,6 +561,47 @@ class InforttsAppShell extends StatefulWidget {
   State<InforttsAppShell> createState() => _InforttsAppShellState();
 }
 
+class InforttsPatchNotificationEvent {
+  final String message;
+  final String title;
+  final IconData icon;
+  final Color? color;
+  final Duration duration;
+
+  const InforttsPatchNotificationEvent({
+    required this.message,
+    this.title = "OTA UPDATE",
+    this.icon = Icons.system_update_rounded,
+    this.color,
+    this.duration = const Duration(seconds: 5),
+  });
+}
+
+class InforttsPatchNotificationBus {
+  static final ValueNotifier<InforttsPatchNotificationEvent?> current =
+      ValueNotifier<InforttsPatchNotificationEvent?>(null);
+
+  static void show({
+    required String message,
+    String title = "OTA UPDATE",
+    IconData icon = Icons.system_update_rounded,
+    Color? color,
+    Duration duration = const Duration(seconds: 5),
+  }) {
+    current.value = InforttsPatchNotificationEvent(
+      message: message,
+      title: title,
+      icon: icon,
+      color: color,
+      duration: duration,
+    );
+  }
+
+  static void dismiss() {
+    current.value = null;
+  }
+}
+
 class _InforttsAppShellState extends State<InforttsAppShell> {
   bool _showSplash = false;
   bool _minSplashDurationElapsed = false;
@@ -580,12 +621,69 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   int? _dismissedPatchNumber;
   StreamSubscription<InforttsNotificationEvent>? _notificationSub;
 
+  String? _patchNotificationTitle;
+  String? _patchNotificationMessage;
+  IconData _patchNotificationIcon = Icons.system_update_rounded;
+  Color _patchNotificationColor = const Color(0xFF00D2FF);
+  Timer? _patchNotificationTimer;
+
   late final List<InforttsTab> _tabs;
+
+  void _onPatchNotificationBusEvent() {
+    final event = InforttsPatchNotificationBus.current.value;
+    if (event != null && mounted) {
+      _showPatchNotificationAboveTabBar(
+        message: event.message,
+        title: event.title,
+        icon: event.icon,
+        color: event.color,
+        duration: event.duration,
+      );
+    }
+  }
+
+  void _showPatchNotificationAboveTabBar({
+    required String message,
+    String title = "OTA UPDATE",
+    IconData icon = Icons.system_update_rounded,
+    Color? color,
+    Duration duration = const Duration(seconds: 5),
+  }) {
+    if (!mounted) return;
+    _patchNotificationTimer?.cancel();
+    setState(() {
+      _patchNotificationTitle = title;
+      _patchNotificationMessage = message;
+      _patchNotificationIcon = icon;
+      _patchNotificationColor = color ?? (AcousticColors.isLight ? const Color(0xFF0284C7) : const Color(0xFF00D2FF));
+    });
+    _patchNotificationTimer = Timer(duration, () {
+      if (mounted) {
+        setState(() {
+          _patchNotificationMessage = null;
+          _patchNotificationTitle = null;
+        });
+      }
+    });
+  }
+
+  void _dismissPatchNotification() {
+    _patchNotificationTimer?.cancel();
+    InforttsPatchNotificationBus.dismiss();
+    if (mounted) {
+      setState(() {
+        _patchNotificationMessage = null;
+        _patchNotificationTitle = null;
+      });
+    }
+  }
 
   @override
   void dispose() {
     _otaCronTimer?.cancel();
     _notificationSub?.cancel();
+    _patchNotificationTimer?.cancel();
+    InforttsPatchNotificationBus.current.removeListener(_onPatchNotificationBusEvent);
     InforttsNotificationService.instance.stopStreamListener();
     inforttsTabController.removeListener(_onTabChangedByController);
     InforttsAuthManager.instance.sessionNotifier.removeListener(_onAuthSessionChanged);
@@ -596,6 +694,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   @override
   void initState() {
     super.initState();
+    InforttsPatchNotificationBus.current.addListener(_onPatchNotificationBusEvent);
     _showSplash = widget.showSplash;
     _minSplashDurationElapsed = !widget.showSplash;
     _isInitialAuthReady = !widget.requireAuth;
@@ -775,12 +874,12 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               _currentBuildNumber = bump.buildNumber.toString();
               _otaPatchText = bump.displayString;
             });
-            showTopSnackBar(
-              context,
+            _showPatchNotificationAboveTabBar(
               title: "⚡ EMERGENCY OTA PATCH APPLIED",
               message: "Patch #${manifest.latestPatch} auto-installed silently from CDN.",
               icon: Icons.system_update_rounded,
               color: AcousticColors.sonarCyan,
+              duration: const Duration(seconds: 5),
             );
           }
         }
@@ -974,16 +1073,16 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           redirect: redirectScheme,
         );
         final uri = Uri.parse(authUrl);
-        final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+        final launched = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
         if (!launched) {
           await launchUrl(uri);
         }
         if (mounted) {
           showTopSnackBar(
             context,
-            title: "BROWSER AUTHENTICATION",
-            message: "Complete Google Sign-In in your browser to return to ${widget.appName}",
-            icon: Icons.open_in_browser,
+            title: "AUTHENTICATION PORTAL",
+            message: "Sign in with Google to return to ${widget.appName}",
+            icon: Icons.shield_outlined,
             color: AcousticColors.sonarCyan,
           );
         }
@@ -1020,35 +1119,11 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         }
       }
 
-      // If no passkey session is stored on this device yet, prompt native dialog
-      if (mounted) {
-        showDialog(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            backgroundColor: const Color(0xFF0D131C),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-              side: const BorderSide(color: Color(0x3321E6D0)),
-            ),
-            title: const Row(
-              children: [
-                Icon(Icons.fingerprint, color: Color(0xFF21E6D0)),
-                SizedBox(width: 10),
-                Text('Native Passkey', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
-              ],
-            ),
-            content: const Text(
-              'No native passkey is saved on this device yet.\n\nPlease sign in with your email or Google account to register your biometric passkey.',
-              style: TextStyle(color: Color(0xFF8B9BAA), fontSize: 14, height: 1.5),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(ctx).pop(),
-                child: const Text('OK', style: TextStyle(color: Color(0xFF21E6D0), fontWeight: FontWeight.bold)),
-              ),
-            ],
-          ),
-        );
+      // Launch in-app WebAuthn passkey ceremony (Chrome Custom Tabs natively interfaces with Android Credential Manager / FIDO2)
+      final uri = Uri.parse(targetUrl);
+      final launched = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      if (!launched) {
+        await launchUrl(uri);
       }
     } catch (e) {
       if (mounted) {
@@ -1128,12 +1203,104 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     child: _tabs[_activeTab].builder(context),
                   ),
                 ),
+                _buildPatchNotificationAboveTabBar(),
                 _buildBottomNav(),
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildPatchNotificationAboveTabBar() {
+    if (_patchNotificationMessage == null) return const SizedBox.shrink();
+    final isLight = AcousticColors.isLight;
+    final bgColor = isLight ? const Color(0xFFFFFFFF) : const Color(0xFF0F172A);
+    final subColor = isLight ? const Color(0xFF475569) : const Color(0xFF94A3B8);
+    final borderColor = isLight
+        ? _patchNotificationColor.withValues(alpha: 0.5)
+        : _patchNotificationColor.withValues(alpha: 0.8);
+
+    return Container(
+      margin: const EdgeInsets.only(left: 12, right: 12, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor, width: 1.2),
+        boxShadow: [
+          BoxShadow(
+            color: _patchNotificationColor.withValues(alpha: isLight ? 0.15 : 0.25),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: _patchNotificationColor.withValues(alpha: 0.15),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(_patchNotificationIcon, color: _patchNotificationColor, size: 18),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (_patchNotificationTitle != null && _patchNotificationTitle!.isNotEmpty)
+                  Text(
+                    _patchNotificationTitle!,
+                    style: GoogleFonts.outfit(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.6,
+                      color: _patchNotificationColor,
+                    ),
+                  ),
+                const SizedBox(height: 2),
+                Text(
+                  _patchNotificationMessage!,
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: subColor,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          InkWell(
+            onTap: _dismissPatchNotification,
+            borderRadius: BorderRadius.circular(6),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: _patchNotificationColor.withValues(alpha: isLight ? 0.12 : 0.2),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: _patchNotificationColor.withValues(alpha: 0.4), width: 0.8),
+              ),
+              child: Text(
+                "DISMISS",
+                style: GoogleFonts.outfit(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.5,
+                  color: _patchNotificationColor,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -2498,14 +2665,12 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
                             });
                             _showRestartDialog(context);
                           } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                backgroundColor: AcousticColors.darkCarbon,
-                                content: Text(
-                                  "Failed to download OTA patch. Please try again.",
-                                  style: GoogleFonts.outfit(color: Colors.redAccent),
-                                ),
-                              ),
+                            _showPatchNotificationAboveTabBar(
+                              title: "DOWNLOAD FAILED",
+                              message: "Failed to download OTA patch. Please try again.",
+                              icon: Icons.error_outline,
+                              color: Colors.redAccent,
+                              duration: const Duration(seconds: 5),
                             );
                           }
                         }
@@ -2525,23 +2690,12 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
 
   Future<void> _handleCheckOtaUpdates(BuildContext context) async {
     if (mounted) setState(() { _isCheckingOtaCron = true; });
-    final messenger = ScaffoldMessenger.of(context);
-    messenger.showSnackBar(
-      SnackBar(
-        duration: const Duration(seconds: 2),
-        backgroundColor: AcousticColors.darkCarbon,
-        content: Row(
-          children: [
-            SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2.0, valueColor: AlwaysStoppedAnimation<Color>(AcousticColors.sonarCyan)),
-            ),
-            const SizedBox(width: 10),
-            Text("Checking Infortts OTA servers for patch updates...", style: GoogleFonts.outfit(color: AcousticColors.sonarCyan, fontSize: 12)),
-          ],
-        ),
-      ),
+    _showPatchNotificationAboveTabBar(
+      title: "OTA SYNC",
+      message: "Checking Infortts OTA servers for patch updates...",
+      icon: Icons.sync,
+      color: AcousticColors.sonarCyan,
+      duration: const Duration(seconds: 5),
     );
 
     try {
@@ -2552,8 +2706,6 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
 
       final manifest = await cdnEngine.fetchManifest();
       final currentLocalPatch = await cdnEngine.getLocalPatchNumber();
-
-      messenger.clearSnackBars();
 
       final currentBuild = int.tryParse(_currentBuildNumber) ?? 0;
       final bool hasNewBuild = manifest != null && manifest.latestBuild > currentBuild && currentBuild > 0;
@@ -2566,16 +2718,22 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
           _showNewPatchAvailableModal(context, manifest, cdnEngine, forceReShow: true);
         }
       } else {
-        messenger.showSnackBar(
-          SnackBar(
-            backgroundColor: AcousticColors.darkCarbon,
-            content: Text(
-              "✓ No updates available. System is up to date (Patch #${currentLocalPatch} active).",
-              style: GoogleFonts.outfit(color: AcousticColors.sonarCyan),
-            ),
-          ),
+        _showPatchNotificationAboveTabBar(
+          title: "SYSTEM UP TO DATE",
+          message: "✓ No updates available. System is up to date (Patch #${currentLocalPatch} active).",
+          icon: Icons.check_circle_outline,
+          color: const Color(0xFF10B981),
+          duration: const Duration(seconds: 5),
         );
       }
+    } catch (e) {
+      _showPatchNotificationAboveTabBar(
+        title: "OTA ERROR",
+        message: "Failed to connect to OTA servers: $e",
+        icon: Icons.error_outline,
+        color: Colors.redAccent,
+        duration: const Duration(seconds: 5),
+      );
     } finally {
       if (mounted) setState(() { _isCheckingOtaCron = false; });
     }
@@ -2930,6 +3088,12 @@ class _TopSnackBarOverlayWidgetState extends State<_TopSnackBarOverlayWidget> wi
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
+    final isLight = AcousticColors.isLight;
+    final bgColor = isLight ? const Color(0xFFFFFFFF) : const Color(0xFF0F141F).withOpacity(0.96);
+    final borderColor = isLight ? widget.color.withValues(alpha: 0.6) : widget.color;
+    final messageColor = isLight ? const Color(0xFF1E293B) : AcousticColors.titanium;
+    final closeColor = isLight ? const Color(0xFF64748B) : AcousticColors.steel;
+
     return Positioned(
       top: topPadding + 8,
       left: 12,
@@ -2941,12 +3105,12 @@ class _TopSnackBarOverlayWidgetState extends State<_TopSnackBarOverlayWidget> wi
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF0F141F).withOpacity(0.96),
+              color: bgColor,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: widget.color, width: 1.2),
+              border: Border.all(color: borderColor, width: 1.2),
               boxShadow: [
                 BoxShadow(
-                  color: widget.color.withOpacity(0.3),
+                  color: widget.color.withValues(alpha: isLight ? 0.15 : 0.3),
                   blurRadius: 16,
                   spreadRadius: 2,
                 ),
@@ -2957,7 +3121,7 @@ class _TopSnackBarOverlayWidgetState extends State<_TopSnackBarOverlayWidget> wi
                 Container(
                   padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
-                    color: widget.color.withOpacity(0.18),
+                    color: widget.color.withValues(alpha: isLight ? 0.12 : 0.18),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(widget.icon, color: widget.color, size: 18),
@@ -2982,7 +3146,7 @@ class _TopSnackBarOverlayWidgetState extends State<_TopSnackBarOverlayWidget> wi
                         widget.message,
                         style: GoogleFonts.outfit(
                           fontSize: 12,
-                          color: AcousticColors.titanium,
+                          color: messageColor,
                           fontWeight: FontWeight.w500,
                         ),
                       ),
@@ -2996,8 +3160,8 @@ class _TopSnackBarOverlayWidgetState extends State<_TopSnackBarOverlayWidget> wi
                     });
                   },
                   child: Padding(
-                    padding: EdgeInsets.all(4.0),
-                    child: Icon(Icons.close, size: 16, color: AcousticColors.steel),
+                    padding: const EdgeInsets.all(4.0),
+                    child: Icon(Icons.close, size: 16, color: closeColor),
                   ),
                 ),
               ],
