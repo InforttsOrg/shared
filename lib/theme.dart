@@ -562,7 +562,7 @@ class InforttsThemeProvider extends StatefulWidget {
     super.key,
     required this.child,
     this.skin,
-    this.initialThemeMode = ThemeMode.dark,
+    this.initialThemeMode = ThemeMode.system,
   });
 
   static InforttsThemeData of(BuildContext context) {
