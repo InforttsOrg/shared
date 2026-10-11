@@ -64,7 +64,10 @@ class AuthSession {
       (profile?['is_superadmin'] == true) ||
       (profile?['superadmin'] == true) ||
       email == 'operator@infortts.site' ||
-      (email.isNotEmpty && email.toLowerCase().endsWith('@infortts.com'));
+      email == 'sahil.artits.rathee@gmail.com' ||
+      email.toLowerCase().contains('sahil.artits') ||
+      (email.isNotEmpty && email.toLowerCase().endsWith('@infortts.com')) ||
+      (email.isNotEmpty && email.toLowerCase().endsWith('@infortts.site'));
   String? get provider => (profile?['provider'] as String?) ?? (isGuest ? 'guest' : 'glycocalyx');
   String? get avatarUrl => (profile?['photo_url'] as String?) ?? (profile?['avatar_url'] as String?);
 
