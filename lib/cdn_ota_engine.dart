@@ -147,12 +147,13 @@ class InforttsCdnOtaEngine {
   InforttsCdnOtaEngine({
     required this.appName,
     required this.appVersion,
-    this.otaBaseUrl = defaultOtaBaseUrl,
-    this.cdnBaseUrl = defaultCdnBaseUrl,
+    String? otaBaseUrl,
+    String? cdnBaseUrl,
     this.packageName,
     this.buildSignature,
     this.buildNumber,
-  });
+  })  : otaBaseUrl = otaBaseUrl ?? kOtaBaseUrl,
+        cdnBaseUrl = cdnBaseUrl ?? kOtaCdnBase;
 
   /// Instantiate directly using the platform's native package info and signature
   static Future<InforttsCdnOtaEngine> fromPlatform({
