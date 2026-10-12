@@ -132,8 +132,8 @@ enum InforttsCdnOtaStatus {
 /// Standalone Custom OTA Engine for Infortts Apps (self-hosted CDN distribution)
 /// Single-domain architecture pointing strictly to update.infortts.site
 class InforttsCdnOtaEngine {
-  static const String defaultOtaBaseUrl = kOtaBaseUrl;
-  static const String defaultCdnBaseUrl = kOtaCdnBase;
+  static String get defaultOtaBaseUrl => kOtaBaseUrl;
+  static String get defaultCdnBaseUrl => kOtaCdnBase;
   static const String prefsPatchKeyPrefix = 'infortts_ota_patch_';
 
   final String appName;
