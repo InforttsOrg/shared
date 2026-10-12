@@ -136,6 +136,19 @@ class InforttsNotificationService extends ChangeNotifier {
   List<InforttsNotificationEvent> get notifications => List.unmodifiable(_notifications);
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
 
+  int getUnreadCountForApp(String appName) {
+    final isMitochondria = appName.toLowerCase().contains('mitochondria');
+    return _notifications.where((n) {
+      if (n.isRead) return false;
+      if (!isMitochondria) {
+        if (n.isIndianStock || n.isMacro || n.isTrading || n.category == 'INDIAN_STOCKS' || n.category == 'MACRO' || n.category == 'TRADING') {
+          return false;
+        }
+      }
+      return true;
+    }).length;
+  }
+
   bool _initialized = false;
   bool _promptShown = false;
   bool _isLoading = false;

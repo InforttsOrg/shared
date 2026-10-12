@@ -728,7 +728,7 @@ class InforttsNotificationBell extends StatelessWidget {
       animation: InforttsNotificationService.instance,
       builder: (context, _) {
         final service = InforttsNotificationService.instance;
-        final unreadCount = service.unreadCount;
+        final unreadCount = service.getUnreadCountForApp(appName);
 
         return Stack(
           alignment: Alignment.center,
