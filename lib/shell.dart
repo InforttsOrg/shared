@@ -2083,49 +2083,49 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                           color: InforttsNotificationService.instance.isGranted ? const Color(0xFF10B981) : AcousticColors.midGray,
                         ),
                       ),
-                      trailing: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: InforttsNotificationService.instance.isGranted
-                              ? const Color(0xFF10B981).withValues(alpha: 0.15)
-                              : AcousticColors.sonarCyan.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(4),
-                          border: Border.all(
-                            color: InforttsNotificationService.instance.isGranted
-                                ? const Color(0xFF10B981)
-                                : AcousticColors.sonarCyan,
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Text(
-                          InforttsNotificationService.instance.isGranted ? "TEST ALERT" : "ENABLE",
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 8.5,
-                            fontWeight: FontWeight.bold,
-                            color: InforttsNotificationService.instance.isGranted
-                                ? const Color(0xFF10B981)
-                                : AcousticColors.sonarCyan,
-                          ),
-                        ),
-                      ),
+                      trailing: InforttsNotificationService.instance.isGranted
+                          ? Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF10B981).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: const Color(0xFF10B981),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                "ACTIVE",
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF10B981),
+                                ),
+                              ),
+                            )
+                          : Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AcousticColors.sonarCyan.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(
+                                  color: AcousticColors.sonarCyan,
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                "ENABLE",
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 8.5,
+                                  fontWeight: FontWeight.bold,
+                                  color: AcousticColors.sonarCyan,
+                                ),
+                              ),
+                            ),
                       onTap: () async {
                         if (!InforttsNotificationService.instance.isGranted) {
                           await InforttsNotificationService.instance.requestPermission(context: context, appName: widget.appName);
                           setState(() {});
-                        } else {
-                          InforttsNotificationBridge.showNotification(
-                            title: "⚡ TEST ${widget.appName.toUpperCase()} ALERT",
-                            body: "${widget.appName} Swarm: Telemetry notification channel verified.",
-                            tag: "test_alert",
-                            targetUrl: "https://admin.infortts.site",
-                          );
-                          showTopSnackBar(
-                            context,
-                            title: "TEST ALERT DISPATCHED",
-                            message: "Notification sent to system notification tray.",
-                            icon: Icons.check_circle_outline,
-                            color: AcousticColors.sonarCyan,
-                          );
                         }
                       },
                     ),
@@ -2159,38 +2159,6 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                           ),
                         );
                       },
-                    ),
-                    Divider(color: AcousticColors.midGray.withOpacity(0.15), height: 1),
-                    ListTile(
-                      leading: Icon(Icons.inbox_rounded, color: AcousticColors.sonarCyan, size: 20),
-                      title: Text("NOTIFICATION INTELLIGENCE FEED", style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.titanium, fontWeight: FontWeight.bold)),
-                      subtitle: Text(
-                        widget.appName.toLowerCase().contains('mitochondria')
-                            ? "Indian stocks, macro events, trade setups & system notifications"
-                            : "Ecosystem updates, OTA releases & cluster telemetry",
-                        style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray),
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (InforttsNotificationService.instance.unreadCount > 0) ...[
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: AcousticColors.sonarCyan,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                "${InforttsNotificationService.instance.unreadCount} NEW",
-                                style: GoogleFonts.jetBrainsMono(fontSize: 8, color: Colors.black, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                          ],
-                          Icon(Icons.chevron_right, color: AcousticColors.steel, size: 18),
-                        ],
-                      ),
-                      onTap: () => InforttsNotificationCenter.show(context, appName: widget.appName),
                     ),
                     Divider(color: AcousticColors.midGray.withOpacity(0.15), height: 1),
                     ListTile(

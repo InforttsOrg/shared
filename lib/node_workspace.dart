@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'theme.dart';
 import 'brand.dart';
 import 'shell.dart';
+import 'infortts_notification_center.dart';
 
 /// Standard branded workspace for Infortts ecosystem nodes.
 ///
@@ -26,13 +27,45 @@ class InforttsNodeWorkspace extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AcousticColors.black,
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Infortts3DLogo(appName: appName, size: 170, interactive: false),
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 16, 0),
+              child: Row(
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF10B981),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      appName.toUpperCase(),
+                      style: GoogleFonts.outfit(
+                        fontSize: 13,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                        color: AcousticColors.titanium,
+                      ),
+                    ),
+                  ),
+                  InforttsNotificationBell(appName: appName, size: 20),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Center(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Infortts3DLogo(appName: appName, size: 170, interactive: false),
               const SizedBox(height: 28),
               Text(
                 appName.toUpperCase(),
@@ -79,6 +112,10 @@ class InforttsNodeWorkspace extends StatelessWidget {
           ),
         ),
       ),
-    );
+    ),
+  ],
+),
+),
+);
   }
 }
