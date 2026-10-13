@@ -41,12 +41,6 @@ class InforttsOtaManifest {
       patchNum = (json['latest_patch'] as num?)?.toInt() ?? 0;
     } else if (json.containsKey('patch') && json['patch'] is Map && (json['patch'] as Map).containsKey('patch_number')) {
       patchNum = ((json['patch'] as Map)['patch_number'] as num?)?.toInt() ?? 0;
-    } else if (versionStr.isNotEmpty) {
-      final clean = versionStr.split('+').first;
-      final parts = clean.split('.');
-      if (parts.length >= 3) {
-        patchNum = int.tryParse(parts[2]) ?? 0;
-      }
     } else if (json.containsKey('patch_code')) {
       patchNum = (json['patch_code'] as num?)?.toInt() ?? 0;
     }

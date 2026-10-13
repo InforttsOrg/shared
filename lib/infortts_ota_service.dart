@@ -232,15 +232,24 @@ class InforttsOtaService {
     final currentLocalPatch = prefs.getInt('infortts_ota_patch_${_appName}_$baseVer') ?? 0;
 
     final bool isUpdateAvailable;
-    if (manifest.latestPatch > 0) {
-      // Server is serving an OTA patch (e.g. Patch #58).
-      // Update is available ONLY IF server's latestPatch is strictly higher than our active local patch.
+    final isNewerBuild = manifest.latestBuild > 0 && manifest.latestBuild > currentBuild;
+    final isNewerVer = isNewerVersion(manifest.version, currentVersion);
+    final hasNativeBump = isNewerBuild || isNewerVer;
+
+    final patchUrlLower = manifest.patchUrl.toLowerCase().split('?').first;
+    final isDifferentialPatch = patchUrlLower.endsWith('.bin') ||
+        patchUrlLower.endsWith('.so') ||
+        patchUrlLower.contains('/patches/');
+
+    if (hasNativeBump) {
+      // True native release bump available
+      isUpdateAvailable = true;
+    } else if (isDifferentialPatch && manifest.latestPatch > 0) {
+      // Running current base release; differential OTA patch available if newer than active local patch
       isUpdateAvailable = manifest.latestPatch > currentLocalPatch;
     } else {
-      // Server manifest has no OTA patch (latestPatch == 0); check native build/version bump.
-      final isNewerBuild = manifest.latestBuild > 0 && manifest.latestBuild > currentBuild;
-      final isNewerVer = isNewerVersion(manifest.version, currentVersion);
-      isUpdateAvailable = isNewerBuild || isNewerVer;
+      // Same or older version and no valid differential patch
+      isUpdateAvailable = false;
     }
 
     final updatedTelemetry = InforttsOtaTelemetry(
