@@ -2070,65 +2070,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                       trailing: Icon(Icons.chevron_right, color: AcousticColors.steel, size: 18),
                       onTap: () => setState(() => _settingsSubPage = "profile"),
                     ),
-                    Divider(color: AcousticColors.midGray.withOpacity(0.15), height: 1),
-                    ListTile(
-                      leading: Icon(Icons.notifications_active_outlined, color: AcousticColors.sonarCyan, size: 20),
-                      title: Text("REAL-TIME ALERTS & NOTIFICATIONS", style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.titanium, fontWeight: FontWeight.bold)),
-                      subtitle: Text(
-                        InforttsNotificationService.instance.isGranted
-                            ? "Status: Active (Real-Time SSE Alerts Enabled)"
-                            : "Status: Disabled / Permission Required — Click to Enable",
-                        style: GoogleFonts.outfit(
-                          fontSize: 9,
-                          color: InforttsNotificationService.instance.isGranted ? const Color(0xFF10B981) : AcousticColors.midGray,
-                        ),
-                      ),
-                      trailing: InforttsNotificationService.instance.isGranted
-                          ? Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF10B981).withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: const Color(0xFF10B981),
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Text(
-                                "ACTIVE",
-                                style: GoogleFonts.jetBrainsMono(
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF10B981),
-                                ),
-                              ),
-                            )
-                          : Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AcousticColors.sonarCyan.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(
-                                  color: AcousticColors.sonarCyan,
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Text(
-                                "ENABLE",
-                                style: GoogleFonts.jetBrainsMono(
-                                  fontSize: 8.5,
-                                  fontWeight: FontWeight.bold,
-                                  color: AcousticColors.sonarCyan,
-                                ),
-                              ),
-                            ),
-                      onTap: () async {
-                        if (!InforttsNotificationService.instance.isGranted) {
-                          await InforttsNotificationService.instance.requestPermission(context: context, appName: widget.appName);
-                          setState(() {});
-                        }
-                      },
-                    ),
+
                     Divider(color: AcousticColors.midGray.withOpacity(0.15), height: 1),
                     ValueListenableBuilder<Brightness>(
                       valueListenable: acousticBrightness,
