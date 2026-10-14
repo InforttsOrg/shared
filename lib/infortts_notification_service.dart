@@ -489,95 +489,163 @@ class InforttsNotificationService extends ChangeNotifier {
       ];
     }
 
-    return showDialog<bool>(
+    return showModalBottomSheet<bool>(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogCtx) {
-        return AlertDialog(
-          backgroundColor: AcousticColors.darkCarbon,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(color: AcousticColors.sonarCyan, width: 1.2),
-          ),
-          title: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: AcousticColors.sonarCyan.withOpacity(0.15),
-                  shape: BoxShape.circle,
-                  border: Border.all(color: AcousticColors.sonarCyan, width: 1.0),
-                ),
-                child: Icon(Icons.notifications_active_rounded, color: AcousticColors.sonarCyan, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      modalTitle,
-                      style: GoogleFonts.outfit(
-                        color: AcousticColors.titanium,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        letterSpacing: 1.2,
+      backgroundColor: const Color(0xFF111827),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            final isGranted = _permissionStatus == "granted";
+            return Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.notifications_active_outlined, color: AcousticColors.sonarCyan, size: 22),
+                          const SizedBox(width: 10),
+                          Text(
+                            modalTitle,
+                            style: GoogleFonts.outfit(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1.5,
+                              color: AcousticColors.titanium,
+                            ),
+                          ),
+                        ],
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                        onPressed: () async {
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setBool(_kPromptDismissedKey, true);
+                          if (sheetCtx.mounted) Navigator.pop(sheetCtx, false);
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AcousticColors.obsidian,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isGranted ? const Color(0xFF10B981).withValues(alpha: 0.3) : const Color(0xFFF59E0B).withValues(alpha: 0.4),
                       ),
                     ),
-                    Text(
-                      modalSubtitle,
-                      style: GoogleFonts.outfit(color: AcousticColors.midGray, fontSize: 10),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              decoration: BoxDecoration(
+                                color: isGranted ? const Color(0xFF10B981).withValues(alpha: 0.15) : const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isGranted ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                isGranted ? 'ACTIVE' : 'PERMISSION REQUIRED',
+                                style: GoogleFonts.jetBrainsMono(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: isGranted ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              modalSubtitle,
+                              style: GoogleFonts.outfit(color: AcousticColors.midGray, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          modalDesc,
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            color: AcousticColors.titanium,
+                            height: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        for (final f in features) ...[
+                          _buildFeatureRow(f),
+                          const SizedBox(height: 6),
+                        ],
+                        if (!isGranted) ...[
+                          const SizedBox(height: 14),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AcousticColors.sonarCyan,
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              icon: const Icon(Icons.check_circle_outline, size: 18),
+                              label: Text(
+                                'GRANT NOTIFICATION ACCESS',
+                                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+                              ),
+                              onPressed: () async {
+                                final res = await requestPermission(context: context, appName: appName);
+                                setSheetState(() {
+                                  _permissionStatus = res;
+                                });
+                                if (res == "granted" && sheetCtx.mounted) {
+                                  Navigator.pop(sheetCtx, true);
+                                }
+                              },
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AcousticColors.sonarCyan,
+                        side: BorderSide(color: AcousticColors.sonarCyan.withValues(alpha: 0.5)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                      icon: const Icon(Icons.inbox_rounded, size: 18),
+                      label: Text(
+                        'OPEN NOTIFICATION INTELLIGENCE',
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12),
+                      ),
+                      onPressed: () {
+                        Navigator.pop(sheetCtx);
+                        InforttsNotificationCenter.show(context, appName: appName);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
               ),
-            ],
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                modalDesc,
-                style: GoogleFonts.outfit(color: AcousticColors.steel, fontSize: 11, height: 1.4),
-              ),
-              const SizedBox(height: 14),
-              for (final f in features) ...[
-                _buildFeatureRow(f),
-                const SizedBox(height: 6),
-              ],
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () async {
-                final prefs = await SharedPreferences.getInstance();
-                await prefs.setBool(_kPromptDismissedKey, true);
-                if (dialogCtx.mounted) Navigator.pop(dialogCtx, false);
-              },
-              child: Text(
-                "MAYBE LATER",
-                style: GoogleFonts.outfit(color: AcousticColors.steel, fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ),
-            ElevatedButton.icon(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AcousticColors.sonarCyan,
-                foregroundColor: Colors.black,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-              ),
-              onPressed: () async {
-                Navigator.pop(dialogCtx, true);
-                await requestPermission(context: context, appName: appName);
-              },
-              icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
-              label: Text(
-                "ENABLE ALERTS",
-                style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
+            );
+          },
         );
       },
     );
