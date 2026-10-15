@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'infortts_notification_center.dart';
 import 'notification_helper.dart';
 import 'shell.dart';
 import 'theme.dart';
