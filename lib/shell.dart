@@ -1,15 +1,12 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io' show exit;
 import 'dart:math' as math;
-import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'env_config.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -19,14 +16,11 @@ import 'package:app_links/app_links.dart';
 import 'theme.dart';
 import 'auth.dart';
 import 'brand.dart';
-import 'animations.dart';
 import 'url_helper.dart';
 import 'error.dart';
 import 'ota_engine.dart';
 import 'cdn_ota_engine.dart';
-import 'notification_helper.dart';
 import 'infortts_notification_service.dart';
-import 'infortts_notification_center.dart';
 
 class InforttsTab {
   final String label;
@@ -618,7 +612,6 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   Timer? _otaCronTimer;
   bool _isCheckingOtaCron = false;
   bool _isOtaModalShowing = false;
-  int? _dismissedPatchNumber;
   StreamSubscription<InforttsNotificationEvent>? _notificationSub;
 
   String? _patchNotificationTitle;

@@ -76,6 +76,17 @@ class InforttsOtaManifest {
       rawUrl = json['apk_url'] as String? ?? '';
     }
 
+    // Differential-patch schemas (e.g. Forensics API) omit an explicit patch
+    // number and only advertise the artifact URL (patch_N.bin). Derive the
+    // patch number from that filename — never from the native release version,
+    // which caused a self-update loop.
+    if (patchNum == 0 && rawUrl.isNotEmpty) {
+      final patchMatch = RegExp(r'patch[_-]?(\d+)').firstMatch(rawUrl);
+      if (patchMatch != null) {
+        patchNum = int.tryParse(patchMatch.group(1)!) ?? 0;
+      }
+    }
+
     final updated = json['updatedAt'] as String? ??
         json['published_at'] as String? ??
         json['timestamp_iso'] as String? ??

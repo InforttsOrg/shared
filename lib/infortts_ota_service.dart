@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'env_config.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
@@ -98,7 +97,6 @@ class InforttsOtaService {
   InforttsOtaService._internal();
 
   String _appName = 'infortts_app';
-  bool _initialized = false;
 
   final ValueNotifier<InforttsOtaTelemetry> telemetryNotifier =
       ValueNotifier<InforttsOtaTelemetry>(InforttsOtaTelemetry.initial('infortts_app'));
@@ -111,7 +109,6 @@ class InforttsOtaService {
   }) async {
     _instance._appName = appName;
     _instance.telemetryNotifier.value = InforttsOtaTelemetry.initial(appName);
-    _instance._initialized = true;
 
     if (autoCheck) {
       unawaited(_instance.checkUpdate(autoDownload: autoDownload));

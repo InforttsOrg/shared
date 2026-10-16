@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'brand.dart';
 import 'cdn_ota_engine.dart';
 import 'theme.dart';
 

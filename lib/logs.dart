@@ -57,7 +57,7 @@ class LogCollector {
           'host': environment,
           'timestamp': DateTime.now().toUtc().toIso8601String(),
         }),
-      ).catchError((_) {});
+      ).then((_) {}, onError: (_) {});
     } catch (_) {}
   }
 }

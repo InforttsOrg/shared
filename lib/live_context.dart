@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 
 /// Enum representing types of user actions captured for live context memory.
 enum UserActionType { touch, drag, chat, screen, system }
