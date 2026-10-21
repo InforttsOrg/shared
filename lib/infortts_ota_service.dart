@@ -279,6 +279,13 @@ class InforttsOtaService {
     InforttsOtaManifest? manifest,
     void Function(double progress)? onProgress,
   }) async {
+    if (kIsWeb) {
+      // On web, updates are served via Cloudflare edge.
+      // Transition directly to readyToRestart so user can reload the page.
+      _updateState(state: InforttsOtaState.readyToRestart);
+      return true;
+    }
+
     final current = telemetryNotifier.value;
     _updateState(state: InforttsOtaState.downloading);
 
@@ -377,7 +384,7 @@ class InforttsOtaBadge extends StatelessWidget {
             break;
           case InforttsOtaState.readyToRestart:
             badgeColor = Colors.green;
-            badgeText = 'PATCH READY (RESTART APP)';
+            badgeText = kIsWeb ? 'NEW VERSION READY (RELOAD PAGE)' : 'PATCH READY (RESTART APP)';
             badgeIcon = Icons.check_circle;
             break;
           case InforttsOtaState.upToDate:
@@ -456,9 +463,15 @@ class InforttsOtaBadge extends StatelessWidget {
                 backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
               ),
-              onPressed: () => exit(0),
+              onPressed: () {
+                if (kIsWeb) {
+                  redirectUser(getCleanCurrentUrl());
+                } else {
+                  exit(0);
+                }
+              },
               icon: const Icon(Icons.restart_alt),
-              label: const Text('Restart App Now'),
+              label: Text(kIsWeb ? 'Reload Page Now' : 'Restart App Now'),
             )
           else if (telemetry.isUpdateAvailable)
             ElevatedButton(
@@ -466,7 +479,7 @@ class InforttsOtaBadge extends StatelessWidget {
                 Navigator.pop(ctx);
                 await InforttsOtaService.instance.downloadAndApplyUpdate();
               },
-              child: const Text('Download & Apply Patch'),
+              child: Text(kIsWeb ? 'Apply Web Update' : 'Download & Apply Patch'),
             ),
         ],
       ),
