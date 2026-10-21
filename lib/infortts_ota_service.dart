@@ -130,17 +130,17 @@ class InforttsOtaService {
     return version;
   }
 
-  /// Candidate manifest endpoints fallback chain
+  /// Candidate manifest endpoints fallback chain (Hugging Face CDN prioritized)
   List<String> _getCandidateUrls(String version) {
     final baseVer = _getBaseVersion(version);
     final cleanSlug = _appName.toLowerCase().replaceAll(' by infortts', '').replaceAll(' infortts', '').trim();
 
     return [
+      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$cleanSlug/manifest.json',
       '$kOtaBaseUrl/api/v1/ota/check?app=$cleanSlug&version=$baseVer',
       '$kOtaBaseUrl/patches/$cleanSlug/v$baseVer/manifest.json',
       '$kOtaBaseUrl/ota/$cleanSlug/manifest.json',
       '$kOtaCdnBase/$cleanSlug/v$baseVer/manifest.json',
-      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$cleanSlug/manifest.json',
       'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$cleanSlug/v$baseVer/manifest.json',
     ];
   }
