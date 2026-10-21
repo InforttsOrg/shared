@@ -2448,7 +2448,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
                             _buildDetailRow("Build Code", "$targetBuild"),
                             _buildDetailRow("Patch Number", "#${manifest.latestPatch}"),
                             if (manifest.updatedAt.isNotEmpty)
-                              _buildDetailRow("Published", manifest.updatedAt),
+                              _buildDetailRow("Published", InforttsVersionHelper.formatTimeAgo(manifest.updatedAt)),
                           ],
                         ),
                       ),

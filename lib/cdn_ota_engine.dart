@@ -401,6 +401,59 @@ class InforttsVersionHelper {
       displayString: 'v$canonicalVersion+$computedBuild (Infortts CDN OTA Patch #$patchNumber Active)',
     );
   }
+
+  /// Format published date string (ISO 8601 or unix epoch) into relative time: hours, minutes, days
+  static String formatTimeAgo(String raw) {
+    if (raw.trim().isEmpty) return '';
+    DateTime? dt;
+    try {
+      final numVal = int.tryParse(raw.trim());
+      if (numVal != null) {
+        if (numVal > 1000000000000) {
+          dt = DateTime.fromMillisecondsSinceEpoch(numVal, isUtc: true);
+        } else {
+          dt = DateTime.fromMillisecondsSinceEpoch(numVal * 1000, isUtc: true);
+        }
+      } else {
+        final clean = raw.trim();
+        final normalized = (clean.endsWith('Z') || clean.contains('+') || RegExp(r'-\d{2}:\d{2}$').hasMatch(clean))
+            ? clean
+            : '${clean}Z';
+        dt = DateTime.tryParse(normalized) ?? DateTime.tryParse(clean);
+      }
+    } catch (_) {}
+
+    if (dt == null) return raw;
+
+    final now = DateTime.now().toUtc();
+    final diff = now.difference(dt.toUtc());
+
+    if (diff.isNegative || diff.inSeconds < 45) {
+      return 'Just now';
+    } else if (diff.inMinutes < 60) {
+      final m = diff.inMinutes;
+      return m <= 1 ? '1 minute ago' : '$m minutes ago';
+    } else if (diff.inHours < 24) {
+      final h = diff.inHours;
+      final m = diff.inMinutes % 60;
+      if (m > 0 && h < 6) {
+        return h == 1 ? '1 hr ${m}m ago' : '$h hrs ${m}m ago';
+      }
+      return h == 1 ? '1 hour ago' : '$h hours ago';
+    } else if (diff.inDays < 7) {
+      final d = diff.inDays;
+      return d == 1 ? '1 day ago' : '$d days ago';
+    } else if (diff.inDays < 30) {
+      final w = (diff.inDays / 7).floor();
+      return w == 1 ? '1 week ago' : '$w weeks ago';
+    } else if (diff.inDays < 365) {
+      final mo = (diff.inDays / 30).floor();
+      return mo == 1 ? '1 month ago' : '$mo months ago';
+    } else {
+      final y = (diff.inDays / 365).floor();
+      return y == 1 ? '1 year ago' : '$y years ago';
+    }
+  }
 }
 
 /// AES-256 / XOR Infortts Stream Decryptor
