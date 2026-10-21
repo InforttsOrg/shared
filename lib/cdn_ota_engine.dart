@@ -65,15 +65,23 @@ class InforttsOtaManifest {
       }
     }
 
-    String rawUrl = json['patchUrl'] as String? ??
-        json['download_url'] as String? ??
-        json['cdn_patch_url'] as String? ??
-        '';
-    if (rawUrl.isEmpty && json.containsKey('patch') && json['patch'] is Map) {
+    String rawUrl = '';
+    // 1. Prefer dedicated differential patch URL from HF manifest
+    if (json.containsKey('patch') && json['patch'] is Map && (json['patch'] as Map).containsKey('url')) {
       rawUrl = (json['patch'] as Map)['url'] as String? ?? '';
     }
+    // 2. Direct patch URLs from central API / registry
     if (rawUrl.isEmpty) {
-      rawUrl = json['apk_url'] as String? ?? '';
+      rawUrl = json['cdn_patch_url'] as String? ??
+          json['r2_patch_url'] as String? ??
+          json['patchUrl'] as String? ??
+          '';
+    }
+    // 3. Fallback to download_url / apk_url
+    if (rawUrl.isEmpty) {
+      rawUrl = json['download_url'] as String? ??
+          json['apk_url'] as String? ??
+          '';
     }
 
     // Differential-patch schemas (e.g. Forensics API) omit an explicit patch
@@ -265,10 +273,11 @@ class InforttsCdnOtaEngine {
       final clean = cleanAppName;
       final candidatePatchUrls = [
         if (manifest.patchUrl.isNotEmpty) manifest.patchUrl,
-        '$otaBaseUrl/patches/$clean/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
         '$otaBaseUrl/patches/$clean/v$baseAppVersion/patch_${manifest.latestPatch}.so',
-        '$cdnBaseUrl/$clean/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
+        '$otaBaseUrl/patches/$clean/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
+        'https://huggingface.co/datasets/rttss/ota-patches/resolve/main/$clean/patches/patch_${manifest.latestPatch}.so',
         'https://huggingface.co/datasets/rttss/ota-patches/resolve/main/$clean/patches/patch_${manifest.latestPatch}.bin',
+        '$cdnBaseUrl/$clean/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
       ];
 
       http.Response? patchResponse;
@@ -276,7 +285,7 @@ class InforttsCdnOtaEngine {
         try {
           final res = await http
               .get(Uri.parse(url))
-              .timeout(const Duration(seconds: 6));
+              .timeout(const Duration(minutes: 5));
           if (res.statusCode == 200 && res.bodyBytes.isNotEmpty) {
             patchResponse = res;
             break;
