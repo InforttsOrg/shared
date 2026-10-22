@@ -2611,9 +2611,15 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
       final currentLocalPatch = await cdnEngine.getLocalPatchNumber();
 
       final currentBuild = int.tryParse(_currentBuildNumber) ?? 0;
-      final bool hasNewBuild = manifest != null && manifest.latestBuild > currentBuild && currentBuild > 0;
+      final baseCurrentBuild = currentBuild >= 1000 ? (currentBuild ~/ 100) * 100 : currentBuild;
+      final manifestBuild = manifest?.latestBuild ?? 0;
+      final baseManifestBuild = manifestBuild >= 1000 ? (manifestBuild ~/ 100) * 100 : manifestBuild;
+
+      final bool hasNewBuild = manifest != null &&
+          (manifest.latestBuild > currentBuild || baseManifestBuild > baseCurrentBuild) &&
+          currentBuild > 0;
       final bool hasNewPatch = manifest != null &&
-          (manifest.latestBuild == currentBuild || currentBuild == 0) &&
+          (baseManifestBuild == baseCurrentBuild || currentBuild == 0) &&
           manifest.latestPatch > currentLocalPatch;
 
       if (manifest != null && (hasNewBuild || hasNewPatch)) {

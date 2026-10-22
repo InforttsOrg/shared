@@ -272,11 +272,14 @@ class InforttsCdnOtaEngine {
 
       final clean = cleanAppName;
       final candidatePatchUrls = [
-        if (manifest.patchUrl.isNotEmpty) manifest.patchUrl,
-        '$otaBaseUrl/patches/$clean/v$baseAppVersion/patch_${manifest.latestPatch}.so',
-        '$otaBaseUrl/patches/$clean/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
+        if (manifest.patchUrl.isNotEmpty &&
+            !manifest.patchUrl.toLowerCase().endsWith('assetmanifest.bin') &&
+            !manifest.patchUrl.toLowerCase().endsWith('outputfiles.bin'))
+          manifest.patchUrl,
         'https://huggingface.co/datasets/rttss/ota-patches/resolve/main/$clean/patches/patch_${manifest.latestPatch}.so',
         'https://huggingface.co/datasets/rttss/ota-patches/resolve/main/$clean/patches/patch_${manifest.latestPatch}.bin',
+        '$otaBaseUrl/patches/$clean/v$baseAppVersion/patch_${manifest.latestPatch}.so',
+        '$otaBaseUrl/patches/$clean/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
         '$cdnBaseUrl/$clean/v$baseAppVersion/patch_${manifest.latestPatch}.bin',
       ];
 
