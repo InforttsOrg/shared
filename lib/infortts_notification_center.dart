@@ -3,6 +3,7 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'auth.dart';
 import 'infortts_notification_service.dart';
 import 'theme.dart';
 
@@ -62,7 +63,8 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
   String _searchQuery = '';
 
   List<Map<String, dynamic>> get _categories {
-    final isMitochondria = widget.appName.toLowerCase().contains('mitochondria');
+    final lower = widget.appName.toLowerCase();
+    final isMitochondria = lower.contains('mitochondria');
     if (isMitochondria) {
       return const [
         {'id': 'ALL', 'label': 'ALL', 'icon': Icons.notifications_none_rounded},
@@ -70,6 +72,15 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
         {'id': 'MACRO', 'label': '🔴 MACRO & FOREX', 'icon': Icons.public_rounded},
         {'id': 'TRADING', 'label': '⚡ TRADING', 'icon': Icons.bolt_rounded},
         {'id': 'SYSTEM', 'label': '🛡️ SYSTEM', 'icon': Icons.security_rounded},
+      ];
+    }
+    final isWaptia = lower.contains('waptia');
+    if (isWaptia) {
+      return const [
+        {'id': 'ALL', 'label': 'ALL', 'icon': Icons.notifications_none_rounded},
+        {'id': 'UPDATES', 'label': '🚀 PACKAGE UPDATES', 'icon': Icons.system_update_rounded},
+        {'id': 'STORE', 'label': '🛍️ STORE & DOWNLOADS', 'icon': Icons.download_done_rounded},
+        {'id': 'ANNOUNCEMENTS', 'label': '📢 ANNOUNCEMENTS', 'icon': Icons.campaign_rounded},
       ];
     }
     return const [
@@ -95,20 +106,25 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
 
   @override
   Widget build(BuildContext context) {
-    final isMitochondria = widget.appName.toLowerCase().contains('mitochondria');
-
     return AnimatedBuilder(
       animation: InforttsNotificationService.instance,
       builder: (context, _) {
         final service = InforttsNotificationService.instance;
         final rawList = service.notifications;
 
+        final session = InforttsAuthManager.instance.currentSession;
+        final currentUserId = session?.userId;
+        final isGuest = session == null || session.isGuest || !session.authenticated;
+
         final filteredList = rawList.where((item) {
-          // If this app is not Mitochondria, do not leak Indian Stocks and trading alerts
-          if (!isMitochondria) {
-            if (item.category == 'INDIAN_STOCKS' || item.category == 'MACRO' || item.category == 'TRADING') {
-              return false;
-            }
+          // Strictly filter for app scope and user authentication scope
+          if (!InforttsNotificationService.isNotificationRelevant(
+            item,
+            appName: widget.appName,
+            userId: currentUserId,
+            isGuest: isGuest,
+          )) {
+            return false;
           }
           if (_selectedCategory != 'ALL' && item.category != _selectedCategory) {
             return false;
@@ -443,7 +459,19 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
     String tagLabel = notif.category;
     IconData tagIcon = Icons.notifications_rounded;
 
-    if (notif.isIndianStock) {
+    if (notif.category == 'UPDATES' || notif.topic.contains('update') || notif.topic.contains('package')) {
+      tagColor = AcousticColors.sonarCyan;
+      tagLabel = '🚀 PACKAGE UPDATE';
+      tagIcon = Icons.system_update_rounded;
+    } else if (notif.category == 'STORE' || notif.topic.contains('store') || notif.category == 'DOWNLOADS') {
+      tagColor = Colors.greenAccent;
+      tagLabel = '🛍️ STORE EVENT';
+      tagIcon = Icons.download_done_rounded;
+    } else if (notif.category == 'ANNOUNCEMENTS') {
+      tagColor = const Color(0xFFFFB800);
+      tagLabel = '📢 ANNOUNCEMENT';
+      tagIcon = Icons.campaign_rounded;
+    } else if (notif.isIndianStock) {
       tagColor = const Color(0xFFFF9933); // Saffron
       tagLabel = '🇮🇳 INDIAN STOCK';
       tagIcon = Icons.trending_up_rounded;

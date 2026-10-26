@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'auth.dart';
 import 'infortts_notification_center.dart';
 import 'notification_helper.dart';
 import 'shell.dart';
@@ -136,17 +137,188 @@ class InforttsNotificationService extends ChangeNotifier {
   List<InforttsNotificationEvent> get notifications => List.unmodifiable(_notifications);
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
 
-  int getUnreadCountForApp(String appName) {
-    final isMitochondria = appName.toLowerCase().contains('mitochondria');
-    return _notifications.where((n) {
-      if (n.isRead) return false;
-      if (!isMitochondria) {
-        if (n.isIndianStock || n.isMacro || n.isTrading || n.category == 'INDIAN_STOCKS' || n.category == 'MACRO' || n.category == 'TRADING') {
+  String _activeAppName = 'Infortts';
+  String get activeAppName => _activeAppName;
+
+  /// Validates whether a notification belongs to the specific application and authenticated user.
+  /// Strict isolation guarantees:
+  /// 1. Waptia and other apps will NEVER receive Mitochondria trading/forex/Indian stock alerts
+  ///    or internal infrastructure node pressure/systemd alerts.
+  /// 2. Unauthenticated (Guest) sessions will NEVER receive user-targeted or private system alerts.
+  /// 3. Authenticated sessions will ONLY receive notifications targeted to their specific user ID
+  ///    or public broadcasts for that specific app.
+  static bool isNotificationRelevant(
+    InforttsNotificationEvent item, {
+    required String appName,
+    String? userId,
+    bool isGuest = false,
+  }) {
+    final lowerApp = appName.toLowerCase().trim();
+    final isMitochondria = lowerApp.contains('mitochondria');
+    final isWaptia = lowerApp.contains('waptia');
+    final isAdmin = lowerApp.contains('admin') || lowerApp.contains('control');
+
+    final topic = item.topic.toLowerCase().trim();
+    final category = item.category.toUpperCase().trim();
+    final title = item.title.toLowerCase().trim();
+    final body = item.body.toLowerCase().trim();
+    final url = item.url.toLowerCase().trim();
+
+    // 1. Identify Mitochondria, Trading, Forex & Indian Stock alerts
+    final isMitoAlert = topic.startsWith('mito') ||
+        topic.contains('trading') ||
+        topic.contains('forex') ||
+        topic.contains('macro') ||
+        topic.contains('indian') ||
+        category == 'INDIAN_STOCKS' ||
+        category == 'MACRO' ||
+        category == 'TRADING' ||
+        item.isIndianStock ||
+        item.isMacro ||
+        item.isTrading ||
+        url.contains('mitochondria') ||
+        title.contains('infortts-mt5') ||
+        title.contains('mitochondria') ||
+        title.contains('terminal xm_') ||
+        body.contains('infortts-mt5') ||
+        body.contains('mitochondria status');
+
+    // 2. Identify internal infrastructure / node health alerts
+    final isInfraAlert = title.contains('node under pressure') ||
+        title.contains('.service is inactive') ||
+        body.contains('memavailable=') ||
+        body.contains('load1=') ||
+        body.contains('reports \'inactive\'');
+
+    // Mitochondria alerts are ONLY for Mitochondria
+    if (!isMitochondria && isMitoAlert) {
+      return false;
+    }
+
+    // Infrastructure / node health alerts are ONLY for Admin apps
+    if (!isAdmin && isInfraAlert) {
+      return false;
+    }
+
+    // 3. User Scoping Check
+    final targetUserId = item.data['user_id']?.toString() ??
+        item.data['target_user']?.toString() ??
+        item.data['userId']?.toString();
+
+    final isUserSpecificTopic = topic.startsWith('user.');
+    final topicUserId = isUserSpecificTopic ? topic.replaceFirst('user.', '').trim() : null;
+    final effectiveTargetUser = targetUserId ?? topicUserId;
+
+    if (isGuest) {
+      // Unauthenticated / Guest users MUST NEVER see user-specific notifications
+      if (effectiveTargetUser != null &&
+          effectiveTargetUser.isNotEmpty &&
+          effectiveTargetUser != 'all' &&
+          effectiveTargetUser != 'public' &&
+          effectiveTargetUser != 'usr_guest') {
+        return false;
+      }
+      // Guests cannot see private system or security alerts
+      if (category == 'SYSTEM' || category == 'SECURITY') {
+        return false;
+      }
+    } else {
+      // Authenticated user
+      if (effectiveTargetUser != null &&
+          effectiveTargetUser.isNotEmpty &&
+          effectiveTargetUser != 'all' &&
+          effectiveTargetUser != 'public' &&
+          effectiveTargetUser != 'usr_guest') {
+        // Must match the current user's ID
+        if (userId == null || userId.isEmpty || userId != effectiveTargetUser) {
           return false;
         }
       }
-      return true;
+    }
+
+    // 4. App-Specific Targeting for Waptia Store
+    if (isWaptia) {
+      // If notification has explicit app target in data
+      final targetApp = item.data['app']?.toString().toLowerCase() ??
+          item.data['target_app']?.toString().toLowerCase() ??
+          item.data['appName']?.toString().toLowerCase();
+
+      if (targetApp != null && targetApp.isNotEmpty) {
+        if (!targetApp.contains('waptia') && targetApp != 'all' && targetApp != 'store') {
+          return false;
+        }
+      }
+
+      // Check if topic or category is Waptia / Store-relevant
+      final isWaptiaTopic = topic.contains('waptia') ||
+          topic.contains('store') ||
+          topic.contains('package') ||
+          topic.contains('update') ||
+          topic.contains('release') ||
+          topic.contains('ota') ||
+          topic.startsWith('app.');
+
+      final isWaptiaCategory = category == 'UPDATES' ||
+          category == 'PACKAGE_UPDATES' ||
+          category == 'STORE' ||
+          category == 'DOWNLOADS' ||
+          category == 'ANNOUNCEMENTS';
+
+      // For Waptia, it must either be a Waptia topic/category or specifically targeted to this user/waptia
+      if (!isWaptiaTopic && !isWaptiaCategory && (targetApp == null || !targetApp.contains('waptia'))) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  int getUnreadCountForApp(String appName) {
+    final session = InforttsAuthManager.instance.currentSession;
+    final userId = session?.userId;
+    final isGuest = session == null || session.isGuest || !session.authenticated;
+
+    return _notifications.where((n) {
+      if (n.isRead) return false;
+      return isNotificationRelevant(n, appName: appName, userId: userId, isGuest: isGuest);
     }).length;
+  }
+
+  /// Injects an in-app local notification into the active notification stream and list.
+  void addLocalNotification({
+    required String title,
+    required String body,
+    String topic = 'waptia.store',
+    String category = 'UPDATES',
+    String? symbol,
+    String priority = 'normal',
+    String url = 'https://waptia.infortts.site',
+    String? targetUserId,
+    Map<String, dynamic>? data,
+  }) {
+    final extraData = data != null ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+    if (targetUserId != null) {
+      extraData['user_id'] = targetUserId;
+    }
+    final notif = InforttsNotificationEvent(
+      id: 'local_${DateTime.now().millisecondsSinceEpoch}',
+      title: title,
+      body: body,
+      topic: topic,
+      category: category,
+      symbol: symbol ?? '',
+      priority: priority,
+      url: url,
+      timestamp: DateTime.now(),
+      isRead: false,
+      data: extraData,
+    );
+    _notifications.insert(0, notif);
+    if (_notifications.length > 100) {
+      _notifications.removeLast();
+    }
+    notifyListeners();
+    _eventController.add(notif);
   }
 
   bool _initialized = false;
@@ -175,6 +347,7 @@ class InforttsNotificationService extends ChangeNotifier {
     String appName = 'Infortts',
     String? customBaseUrl,
   }) async {
+    _activeAppName = appName;
     if (customBaseUrl != null && customBaseUrl.isNotEmpty) {
       setApiBaseUrl(customBaseUrl);
     }
@@ -436,13 +609,19 @@ class InforttsNotificationService extends ChangeNotifier {
     notifyListeners();
     _eventController.add(event);
 
-    // Show native Web / OS notification
-    InforttsNotificationBridge.showNotification(
-      title: event.title,
-      body: event.body,
-      tag: event.topic,
-      targetUrl: event.url,
-    );
+    // Only show native Web / OS notification if relevant for active app and session
+    final session = InforttsAuthManager.instance.currentSession;
+    final userId = session?.userId;
+    final isGuest = session == null || session.isGuest || !session.authenticated;
+
+    if (isNotificationRelevant(event, appName: _activeAppName, userId: userId, isGuest: isGuest)) {
+      InforttsNotificationBridge.showNotification(
+        title: event.title,
+        body: event.body,
+        tag: event.topic,
+        targetUrl: event.url,
+      );
+    }
   }
 
   Future<bool?> showPermissionPromptModal(BuildContext context, {String appName = 'Infortts'}) async {

@@ -743,6 +743,19 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       appName: widget.appName,
     );
     _notificationSub = InforttsNotificationService.instance.eventStream.listen((event) {
+      final session = InforttsAuthManager.instance.currentSession;
+      final userId = session?.userId;
+      final isGuest = session == null || session.isGuest || !session.authenticated;
+
+      if (!InforttsNotificationService.isNotificationRelevant(
+        event,
+        appName: widget.appName,
+        userId: userId,
+        isGuest: isGuest,
+      )) {
+        return;
+      }
+
       if (mounted) {
         showTopSnackBar(
           context,
