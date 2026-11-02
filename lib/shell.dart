@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:io' show exit;
 import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -8,12 +9,13 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:url_launcher/url_launcher.dart';
 import 'package:app_links/app_links.dart';
 
 import 'theme.dart';
+import 'emblem/emblem_painter.dart';
+import 'emblem/emblem_spec.dart';
 import 'auth.dart';
 import 'brand.dart';
 import 'url_helper.dart';
@@ -42,11 +44,17 @@ class Infortts3DLogo extends StatefulWidget {
   final double size;
   final bool interactive;
 
+  /// Optional gradient palette key for marks that name one (`kEmblemThemes`):
+  /// `brand`, `neon`, `glass`, `holi`, `diwali`, `pride`, `aurora`. Null keeps
+  /// whatever the spec pins, so existing call sites are unaffected.
+  final String? theme;
+
   const Infortts3DLogo({
     super.key,
     required this.appName,
     this.size = 180.0,
     this.interactive = true,
+    this.theme,
   });
 
   @override
@@ -127,6 +135,7 @@ class _Infortts3DLogoState extends State<Infortts3DLogo>
             painter: _EmblemPainter(
               organismName: nameNormalized,
               isHovered: _isHovered,
+              theme: widget.theme,
             ),
           ),
         ),
@@ -139,15 +148,27 @@ class _EmblemPainter extends CustomPainter {
   final String organismName;
   final bool isHovered;
 
+  /// Optional palette key (see `kEmblemThemes`) — festival / mood reskin.
+  final String? theme;
+
   _EmblemPainter({
     required this.organismName,
     required this.isHovered,
+    this.theme,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
+
+    // Standalone marks (the corporate logo) are their own artwork: no grid, no
+    // dark disc, no rim — the spec draws a full-bleed gradient instead.
+    final EmblemSpec spec = EmblemSpec.resolve(organismName);
+    if (!spec.showMedal) {
+      EmblemRenderer.paint(canvas, center, radius, spec, theme: theme);
+      return;
+    }
 
     final gridPaint = Paint()
       ..color = AcousticColors.midGray.withOpacity(0.12)
@@ -181,342 +202,16 @@ class _EmblemPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
     canvas.drawCircle(center, radius * 0.72, rimStroke);
 
-    if (organismName.contains("mitochondria") || organismName.contains("forensic")) {
-      _drawMitochondria(canvas, center, radius);
-    } else if (organismName.contains("yorgia")) {
-      _drawYorgia(canvas, center, radius);
-    } else if (organismName.contains("dickinsonia")) {
-      _drawDickinsonia(canvas, center, radius);
-    } else if (organismName.contains("kimberella")) {
-      _drawKimberella(canvas, center, radius);
-    } else if (organismName.contains("cursus")) {
-      _drawCursus(canvas, center, radius);
-    } else if (organismName.contains("fractofusus")) {
-      _drawFractofusus(canvas, center, radius);
-    } else {
-      _drawDefaultEmblem(canvas, center, radius);
-    }
-  }
-
-  void _drawMitochondria(Canvas canvas, Offset center, double radius) {
-    final bodyPaint = Paint()
-      ..shader = LinearGradient(
-        colors: [AcousticColors.panelBg, AcousticColors.darkCarbon.withOpacity(0.9)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ).createShader(Rect.fromCircle(center: center, radius: radius * 0.5))
-      ..style = PaintingStyle.fill;
-
-    final path = Path();
-    path.moveTo(center.dx - radius * 0.45, center.dy);
-    path.cubicTo(
-      center.dx - radius * 0.35, center.dy - radius * 0.45,
-      center.dx + radius * 0.35, center.dy - radius * 0.45,
-      center.dx + radius * 0.45, center.dy,
-    );
-    path.cubicTo(
-      center.dx + radius * 0.35, center.dy + radius * 0.45,
-      center.dx - radius * 0.35, center.dy + radius * 0.45,
-      center.dx - radius * 0.45, center.dy,
-    );
-    path.close();
-    canvas.drawPath(path, bodyPaint);
-
-    final edgeStroke = Paint()
-      ..color = AcousticColors.titanium.withOpacity(0.4)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-    canvas.drawPath(path, edgeStroke);
-
-    final glowPaint = Paint()
-      ..color = AcousticColors.sonarCyan.withOpacity(0.25)
-      ..strokeWidth = 4.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final cristaePaint = Paint()
-      ..color = AcousticColors.sonarCyan
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final cristaePath = Path();
-    for (double i = -0.3; i <= 0.3; i += 0.1) {
-      final double y = center.dy + i * radius;
-      cristaePath.moveTo(center.dx - radius * 0.25, y);
-      cristaePath.quadraticBezierTo(
-        center.dx, y + (i % 0.2 == 0 ? radius * 0.08 : -radius * 0.08),
-        center.dx + radius * 0.25, y,
-      );
-    }
-
-    canvas.drawPath(cristaePath, glowPaint);
-    canvas.drawPath(cristaePath, cristaePaint);
-  }
-
-  void _drawYorgia(Canvas canvas, Offset center, double radius) {
-    final headPaint = Paint()
-      ..color = AcousticColors.panelBg
-      ..style = PaintingStyle.fill;
-    canvas.drawArc(
-      Rect.fromCenter(center: center - Offset(0, radius * 0.15), width: radius * 0.8, height: radius * 0.5),
-      math.pi,
-      math.pi,
-      true,
-      headPaint,
-    );
-
-    final spinePaint = Paint()
-      ..color = AcousticColors.sonarBlue
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(center - Offset(0, radius * 0.4), center + Offset(0, radius * 0.4), spinePaint);
-
-    final ribPaint = Paint()
-      ..color = AcousticColors.sonarCyan
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-
-    for (int i = 0; i < 6; i++) {
-      final double y = center.dy - radius * 0.15 + (i * radius * 0.09);
-      final double xOffset = radius * 0.3 * (1.0 - i * 0.12);
-      canvas.drawLine(Offset(center.dx - xOffset, y), Offset(center.dx - radius * 0.02, y - 5), ribPaint);
-      canvas.drawLine(Offset(center.dx + xOffset, y + 3), Offset(center.dx + radius * 0.02, y - 2), ribPaint);
-    }
-  }
-
-  void _drawDickinsonia(Canvas canvas, Offset center, double radius) {
-    final r = radius * 0.5;
-    final bodyPaint = Paint()
-      ..shader = RadialGradient(
-        colors: [AcousticColors.activeCard, AcousticColors.panelBg],
-      ).createShader(Rect.fromCircle(center: center, radius: r))
-      ..style = PaintingStyle.fill;
-
-    canvas.drawOval(Rect.fromCenter(center: center, width: r * 1.5, height: r * 2.0), bodyPaint);
-
-    final rimPaint = Paint()
-      ..color = AcousticColors.steel.withOpacity(0.3)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-    canvas.drawOval(Rect.fromCenter(center: center, width: r * 1.5, height: r * 2.0), rimPaint);
-
-    final ribPaint = Paint()
-      ..color = AcousticColors.sonarCyan
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-
-    final glowRib = Paint()
-      ..color = AcousticColors.sonarCyan.withOpacity(0.3)
-      ..strokeWidth = 3.5
-      ..style = PaintingStyle.stroke;
-
-    final pathL = Path();
-    final pathR = Path();
-
-    canvas.drawLine(Offset(center.dx, center.dy - r * 0.95), Offset(center.dx, center.dy + r * 0.95), ribPaint);
-
-    for (int i = 0; i < 9; i++) {
-      final double ratio = i / 9.0;
-      final double y = center.dy - r * 0.8 + ratio * (r * 1.6);
-      final double w = math.sqrt(1 - math.pow(ratio * 2 - 1, 2)) * r * 0.7;
-
-      if (i.isEven) {
-        pathL.moveTo(center.dx, y);
-        pathL.quadraticBezierTo(center.dx - w * 0.5, y + 4, center.dx - w, y + 2);
-      } else {
-        pathR.moveTo(center.dx, y);
-        pathR.quadraticBezierTo(center.dx + w * 0.5, y + 4, center.dx + w, y + 2);
-      }
-    }
-
-    canvas.drawPath(pathL, glowRib);
-    canvas.drawPath(pathL, ribPaint);
-    canvas.drawPath(pathR, glowRib);
-    canvas.drawPath(pathR, ribPaint);
-  }
-
-  void _drawKimberella(Canvas canvas, Offset center, double radius) {
-    final r = radius * 0.55;
-    final shellPaint = Paint()
-      ..shader = LinearGradient(
-        colors: [AcousticColors.panelBg, AcousticColors.black],
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-      ).createShader(Rect.fromCircle(center: center, radius: r))
-      ..style = PaintingStyle.fill;
-
-    final shellPath = Path();
-    shellPath.moveTo(center.dx, center.dy - r * 0.9);
-    shellPath.cubicTo(
-      center.dx + r * 0.6, center.dy - r * 0.3,
-      center.dx + r * 0.55, center.dy + r * 0.8,
-      center.dx, center.dy + r * 0.9,
-    );
-    shellPath.cubicTo(
-      center.dx - r * 0.55, center.dy + r * 0.8,
-      center.dx - r * 0.6, center.dy - r * 0.3,
-      center.dx, center.dy - r * 0.9,
-    );
-    shellPath.close();
-
-    canvas.drawPath(shellPath, shellPaint);
-
-    final borderPaint = Paint()
-      ..color = AcousticColors.steel.withOpacity(0.4)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-    canvas.drawPath(shellPath, borderPaint);
-
-    final groovePaint = Paint()
-      ..color = AcousticColors.sonarBlue
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-    final cyanGroovePaint = Paint()
-      ..color = AcousticColors.sonarCyan
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-
-    for (int i = -4; i <= 4; i++) {
-      if (i == 0) continue;
-      final angle = i * 0.28;
-      final double endX = center.dx + math.sin(angle) * r * 0.85;
-      final double endY = center.dy + math.cos(angle) * r * 0.85;
-
-      canvas.drawLine(
-        Offset(center.dx, center.dy - r * 0.4),
-        Offset(endX, endY),
-        groovePaint,
-      );
-      canvas.drawLine(
-        Offset(center.dx, center.dy - r * 0.1),
-        Offset(center.dx + math.sin(angle) * r * 0.5, center.dy + math.cos(angle) * r * 0.5),
-        cyanGroovePaint,
-      );
-    }
-  }
-
-  void _drawCursus(Canvas canvas, Offset center, double radius) {
-    final r = radius * 0.5;
-    final chevronPaint = Paint()
-      ..color = AcousticColors.sonarCyan.withOpacity(0.8)
-      ..strokeWidth = 2.0
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-
-    final basePaint = Paint()
-      ..color = AcousticColors.panelBg
-      ..style = PaintingStyle.fill;
-
-    for (int i = 0; i < 4; i++) {
-      final double y = center.dy - r * 0.7 + i * (r * 0.5);
-      final path = Path()
-        ..moveTo(center.dx - r * 0.4, y - r * 0.15)
-        ..lineTo(center.dx, y + r * 0.1)
-        ..lineTo(center.dx + r * 0.4, y - r * 0.15);
-
-      canvas.drawPath(path, basePaint);
-      canvas.drawPath(path, chevronPaint);
-
-      if (i < 3) {
-        canvas.drawLine(
-          Offset(center.dx, y + r * 0.1),
-          Offset(center.dx, y + r * 0.35),
-          Paint()
-            ..color = AcousticColors.sonarBlue
-            ..strokeWidth = 1.2
-            ..style = PaintingStyle.stroke,
-        );
-      }
-    }
-  }
-
-  void _drawFractofusus(Canvas canvas, Offset center, double radius) {
-    final r = radius * 0.55;
-    final basePaint = Paint()
-      ..shader = LinearGradient(
-        colors: [AcousticColors.panelBg, AcousticColors.black],
-      ).createShader(Rect.fromCircle(center: center, radius: r))
-      ..style = PaintingStyle.fill;
-
-    final path = Path()
-      ..moveTo(center.dx, center.dy - r * 0.85)
-      ..lineTo(center.dx + r * 0.35, center.dy)
-      ..lineTo(center.dx, center.dy + r * 0.85)
-      ..lineTo(center.dx - r * 0.35, center.dy)
-      ..close();
-
-    canvas.drawPath(path, basePaint);
-
-    final linePaint = Paint()
-      ..color = AcousticColors.sonarCyan
-      ..strokeWidth = 1.2
-      ..style = PaintingStyle.stroke;
-
-    final glowPaint = Paint()
-      ..color = AcousticColors.sonarCyan.withOpacity(0.3)
-      ..strokeWidth = 3.0
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawPath(path, linePaint);
-
-    final innerPath = Path();
-    for (double i = -0.6; i <= 0.6; i += 0.2) {
-      final double y = center.dy + i * r;
-      final double factor = 1.0 - i.abs();
-      innerPath.moveTo(center.dx, y);
-      innerPath.lineTo(center.dx - r * 0.25 * factor, y + r * 0.1);
-      innerPath.moveTo(center.dx, y);
-      innerPath.lineTo(center.dx + r * 0.25 * factor, y + r * 0.1);
-    }
-
-    canvas.drawPath(innerPath, glowPaint);
-    canvas.drawPath(innerPath, linePaint);
-  }
-
-  void _drawDefaultEmblem(Canvas canvas, Offset center, double radius) {
-    final r = radius * 0.5;
-    final lensPaint = Paint()
-      ..color = AcousticColors.panelBg
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(center, r, lensPaint);
-
-    final hexPaint = Paint()
-      ..color = AcousticColors.steel.withOpacity(0.3)
-      ..strokeWidth = 1.0
-      ..style = PaintingStyle.stroke;
-
-    final hexPath = Path();
-    for (int i = 0; i < 6; i++) {
-      final angle = i * math.pi / 3;
-      final double x = center.dx + math.sin(angle) * r;
-      final double y = center.dy + math.cos(angle) * r;
-      if (i == 0) {
-        hexPath.moveTo(x, y);
-      } else {
-        hexPath.lineTo(x, y);
-      }
-    }
-    hexPath.close();
-    canvas.drawPath(hexPath, hexPaint);
-
-    final ringPaint = Paint()
-      ..color = AcousticColors.sonarCyan
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-    canvas.drawCircle(center, r * 0.6, ringPaint);
-
-    canvas.drawCircle(
-      center,
-      r * 0.2,
-      Paint()..color = AcousticColors.sonarBlue.withOpacity(0.5)..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6),
-    );
-    canvas.drawCircle(center, r * 0.1, Paint()..color = AcousticColors.sonarCyan);
+    // One interpreter for every organism — the spec comes from
+    // logos/3d/brand/organisms.json via emblem_registry.g.dart.
+    EmblemRenderer.paint(canvas, center, radius, spec, theme: theme);
   }
 
   @override
   bool shouldRepaint(covariant _EmblemPainter oldDelegate) {
-    return oldDelegate.organismName != organismName || oldDelegate.isHovered != isHovered;
+    return oldDelegate.organismName != organismName ||
+        oldDelegate.isHovered != isHovered ||
+        oldDelegate.theme != theme;
   }
 }
 
@@ -565,7 +260,7 @@ class InforttsPatchNotificationEvent {
   const InforttsPatchNotificationEvent({
     required this.message,
     this.title = "OTA UPDATE",
-    this.icon = Icons.system_update_rounded,
+    this.icon = LucideIcons.refreshCw,
     this.color,
     this.duration = const Duration(seconds: 5),
   });
@@ -578,7 +273,7 @@ class InforttsPatchNotificationBus {
   static void show({
     required String message,
     String title = "OTA UPDATE",
-    IconData icon = Icons.system_update_rounded,
+    IconData icon = LucideIcons.refreshCw,
     Color? color,
     Duration duration = const Duration(seconds: 5),
   }) {
@@ -616,7 +311,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
 
   String? _patchNotificationTitle;
   String? _patchNotificationMessage;
-  IconData _patchNotificationIcon = Icons.system_update_rounded;
+  IconData _patchNotificationIcon = LucideIcons.refreshCw;
   Color _patchNotificationColor = const Color(0xFF00D2FF);
   Timer? _patchNotificationTimer;
 
@@ -638,7 +333,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
   void _showPatchNotificationAboveTabBar({
     required String message,
     String title = "OTA UPDATE",
-    IconData icon = Icons.system_update_rounded,
+    IconData icon = LucideIcons.refreshCw,
     Color? color,
     Duration duration = const Duration(seconds: 5),
   }) {
@@ -704,9 +399,9 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       if (widget.additionalTabs != null)
         ...widget.additionalTabs!
       else ...[
-        InforttsTab(label: "Dashboard", icon: Icons.dashboard_outlined, builder: (_) => widget.workspaceChild),
+        InforttsTab(label: "Dashboard", icon: LucideIcons.layoutDashboard, builder: (_) => widget.workspaceChild),
       ],
-      InforttsTab(label: "Settings", icon: Icons.settings_outlined, builder: (_) => _buildSettingsView()),
+      InforttsTab(label: "Settings", icon: LucideIcons.settings, builder: (_) => _buildSettingsView()),
     ];
     if (widget.showSplash) {
       Timer(const Duration(milliseconds: 1400), () {
@@ -761,7 +456,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           context,
           title: "⚡ ${event.title.toUpperCase()}",
           message: event.body,
-          icon: Icons.notifications_active_rounded,
+          icon: LucideIcons.bellRing,
           color: AcousticColors.sonarCyan,
           duration: const Duration(seconds: 5),
         );
@@ -883,7 +578,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
             _showPatchNotificationAboveTabBar(
               title: "⚡ EMERGENCY OTA PATCH APPLIED",
               message: "Patch #${manifest.latestPatch} auto-installed silently from CDN.",
-              icon: Icons.system_update_rounded,
+              icon: LucideIcons.refreshCw,
               color: AcousticColors.sonarCyan,
               duration: const Duration(seconds: 5),
             );
@@ -898,7 +593,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
 
   Widget _buildFlashingOtaIcon() {
     final icon = Icon(
-      Icons.sensors_rounded,
+      LucideIcons.activity,
       size: 14,
       color: AcousticColors.sonarCyan,
     );
@@ -917,14 +612,6 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       padding: const EdgeInsets.symmetric(horizontal: 4.0),
       child: icon,
     );
-  }
-
-  void _restoreSession() async {
-    _initAuthManager();
-  }
-
-  void _saveSession(AuthSession session) async {
-    await InforttsAuthManager.instance.saveSession(session);
   }
 
   void _switchAccount(AuthSession account) async {
@@ -967,7 +654,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           context,
           title: "AUTHENTICATED",
           message: "Signed in as ${session.displayName}",
-          icon: Icons.check_circle_outline,
+          icon: LucideIcons.circleCheck,
           color: AcousticColors.sonarCyan,
         );
       }
@@ -997,14 +684,10 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
         context,
         title: "GUEST ACCESS",
         message: "Continuing in guest preview mode.",
-        icon: Icons.person_outline,
+        icon: LucideIcons.user,
         color: AcousticColors.sonarCyan,
       );
     }
-  }
-
-  Future<void> _fetchLiveProfile() async {
-    await InforttsAuthManager.instance.syncLiveProfile();
   }
 
   void _initDeepLinks() async {
@@ -1064,7 +747,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
           context,
           title: "AUTHENTICATED WITH GOOGLE",
           message: "Signed in as ${session.displayName}",
-          icon: Icons.check_circle_outline,
+          icon: LucideIcons.circleCheck,
           color: AcousticColors.sonarCyan,
         );
       }
@@ -1088,7 +771,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
             context,
             title: "AUTHENTICATION PORTAL",
             message: "Sign in with Google to return to ${widget.appName}",
-            icon: Icons.shield_outlined,
+            icon: LucideIcons.shield,
             color: AcousticColors.sonarCyan,
           );
         }
@@ -1098,42 +781,6 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       }
       if (mounted) {
         showErrorSnackBar(context, 'Google Sign-In: ${e.toString().replaceAll('Exception: ', '')}');
-      }
-    }
-  }
-
-  void _handlePasskeyAuth() async {
-    final appName = widget.appName.toLowerCase().replaceAll(' ', '');
-    final redirectScheme = '$appName://auth/callback';
-    final targetUrl = 'https://auth.infortts.site/auth/login?passkey=1&redirect=${Uri.encodeComponent(kIsWeb ? getCleanCurrentUrl() : redirectScheme)}';
-
-    if (kIsWeb) {
-      redirectUser(targetUrl);
-      return;
-    }
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedToken = prefs.getString('infortts_auth_token');
-      if (savedToken != null && savedToken.isNotEmpty) {
-        final profileStr = prefs.getString('infortts_auth_profile');
-        if (profileStr != null && profileStr.isNotEmpty) {
-          setState(() {
-            _isAuthenticated = true;
-          });
-          return;
-        }
-      }
-
-      // Launch in-app WebAuthn passkey ceremony (Chrome Custom Tabs natively interfaces with Android Credential Manager / FIDO2)
-      final uri = Uri.parse(targetUrl);
-      final launched = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
-      if (!launched) {
-        await launchUrl(uri);
-      }
-    } catch (e) {
-      if (mounted) {
-        showErrorSnackBar(context, 'Passkey authentication failed: $e');
       }
     }
   }
@@ -1545,7 +1192,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                               acc.email.isNotEmpty ? acc.email : "Local User",
                               style: GoogleFonts.jetBrainsMono(fontSize: 8, color: AcousticColors.steel),
                             ),
-                            trailing: Icon(Icons.arrow_forward_ios, size: 10, color: AcousticColors.sonarCyan),
+                            trailing: Icon(LucideIcons.chevronRight, size: 10, color: AcousticColors.sonarCyan),
                             onTap: () => _switchAccount(acc),
                           ),
                         ],
@@ -1557,7 +1204,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: _handleGoogleSSO,
-                  icon: Icon(Icons.security, size: 16, color: AcousticColors.sonarCyan),
+                  icon: Icon(LucideIcons.shield, size: 16, color: AcousticColors.sonarCyan),
                   label: Text(
                     "CONTINUE WITH GOOGLE SSO",
                     style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan, letterSpacing: 1.0),
@@ -1818,12 +1465,12 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                                 )
                               else
                                 IconButton(
-                                  icon: Icon(Icons.swap_horiz, size: 16, color: AcousticColors.sonarCyan),
+                                  icon: Icon(LucideIcons.arrowLeftRight, size: 16, color: AcousticColors.sonarCyan),
                                   tooltip: "Switch to this account",
                                   onPressed: () => _switchAccount(acc),
                                 ),
                               IconButton(
-                                icon: Icon(Icons.close, size: 14, color: AcousticColors.midGray),
+                                icon: Icon(LucideIcons.x, size: 14, color: AcousticColors.midGray),
                                 tooltip: "Remove account",
                                 onPressed: () => _removeAccount(acc.userId),
                               ),
@@ -1838,7 +1485,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: _handleGoogleSSO,
-                  icon: Icon(Icons.add, size: 14, color: AcousticColors.sonarCyan),
+                  icon: Icon(LucideIcons.plus, size: 14, color: AcousticColors.sonarCyan),
                   label: Text(
                     "ADD ANOTHER ACCOUNT",
                     style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AcousticColors.sonarCyan, letterSpacing: 1.0),
@@ -1854,7 +1501,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               if (isAuthed)
                 OutlinedButton.icon(
                   onPressed: _handleLogout,
-                  icon: const Icon(Icons.logout_rounded, size: 16),
+                  icon: const Icon(LucideIcons.logOut, size: 16),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AcousticColors.warnOrange,
                     side: BorderSide(color: AcousticColors.warnOrange),
@@ -1869,7 +1516,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
               else ...[
                 ElevatedButton.icon(
                   onPressed: _handleGoogleSSO,
-                  icon: const Icon(Icons.login_rounded, size: 16),
+                  icon: const Icon(LucideIcons.logIn, size: 16),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AcousticColors.sonarCyan.withOpacity(0.15),
                     foregroundColor: AcousticColors.sonarCyan,
@@ -1885,7 +1532,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: _handleLogout,
-                  icon: const Icon(Icons.exit_to_app_rounded, size: 16),
+                  icon: const Icon(LucideIcons.logOut, size: 16),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AcousticColors.warnOrange,
                     side: BorderSide(color: AcousticColors.warnOrange.withOpacity(0.6)),
@@ -1976,7 +1623,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
       child: Row(
         children: [
           IconButton(
-            icon: Icon(Icons.arrow_back, color: AcousticColors.sonarCyan, size: 20),
+            icon: Icon(LucideIcons.arrowLeft, color: AcousticColors.sonarCyan, size: 20),
             onPressed: () => setState(() => _settingsSubPage = "main"),
           ),
           const SizedBox(width: 8),
@@ -2070,10 +1717,10 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                 child: Column(
                   children: [
                     ListTile(
-                      leading: Icon(Icons.person_outline, color: AcousticColors.sonarCyan, size: 20),
+                      leading: Icon(LucideIcons.user, color: AcousticColors.sonarCyan, size: 20),
                       title: Text("OPERATOR PROFILE", style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.titanium, fontWeight: FontWeight.bold)),
                       subtitle: Text("Centralized credentials & OAuth details", style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray)),
-                      trailing: Icon(Icons.chevron_right, color: AcousticColors.steel, size: 18),
+                      trailing: Icon(LucideIcons.chevronRight, color: AcousticColors.steel, size: 18),
                       onTap: () => setState(() => _settingsSubPage = "profile"),
                     ),
 
@@ -2084,7 +1731,7 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                         final isDark = brightness == Brightness.dark;
                         return ListTile(
                           leading: Icon(
-                            isDark ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+                            isDark ? LucideIcons.moon : LucideIcons.sun,
                             color: AcousticColors.sonarCyan,
                             size: 20,
                           ),
@@ -2110,10 +1757,10 @@ class _InforttsAppShellState extends State<InforttsAppShell> {
                     ),
                     Divider(color: AcousticColors.midGray.withOpacity(0.15), height: 1),
                     ListTile(
-                      leading: Icon(Icons.info_outline, color: AcousticColors.sonarCyan, size: 20),
+                      leading: Icon(LucideIcons.info, color: AcousticColors.sonarCyan, size: 20),
                       title: Text("ABOUT SYSTEM", style: GoogleFonts.outfit(fontSize: 11, color: AcousticColors.titanium, fontWeight: FontWeight.bold)),
                       subtitle: Text("Coded lifeform description & 3D emblem", style: GoogleFonts.outfit(fontSize: 9, color: AcousticColors.midGray)),
-                      trailing: Icon(Icons.chevron_right, color: AcousticColors.steel, size: 18),
+                      trailing: Icon(LucideIcons.chevronRight, color: AcousticColors.steel, size: 18),
                       onTap: () => setState(() => _settingsSubPage = "about"),
                     ),
                   ],
@@ -2220,7 +1867,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Icon(Icons.system_update_alt_rounded, size: 14, color: AcousticColors.sonarCyan),
+                                Icon(LucideIcons.downloadCloud, size: 14, color: AcousticColors.sonarCyan),
                                 _buildFlashingOtaIcon(),
                                 const SizedBox(width: 4),
                                 Flexible(
@@ -2244,7 +1891,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                             ),
                             onPressed: () => _showInstalledPatchDetailsModal(context),
-                            icon: const Icon(Icons.info_outline_rounded, size: 14),
+                            icon: const Icon(LucideIcons.info, size: 14),
                             label: Text("Patch Details", style: GoogleFonts.outfit(fontSize: 10, fontWeight: FontWeight.bold)),
                           ),
                         ),
@@ -2287,7 +1934,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: AcousticColors.sonarCyan, width: 1.2)),
         title: Row(
           children: [
-            Icon(Icons.system_update_rounded, color: AcousticColors.sonarCyan, size: 22),
+            Icon(LucideIcons.refreshCw, color: AcousticColors.sonarCyan, size: 22),
             const SizedBox(width: 8),
             Text("Active Version & Patch Details", style: GoogleFonts.outfit(color: AcousticColors.titanium, fontWeight: FontWeight.bold, fontSize: 16)),
           ],
@@ -2311,7 +1958,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.check_circle_outline, color: AcousticColors.sonarCyan, size: 14),
+                      Icon(LucideIcons.circleCheck, color: AcousticColors.sonarCyan, size: 14),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
@@ -2408,7 +2055,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
-                            Icons.system_update_rounded,
+                            LucideIcons.refreshCw,
                             color: AcousticColors.sonarCyan,
                             size: 24,
                           ),
@@ -2482,7 +2129,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Icon(Icons.check_circle_outline,
+                                Icon(LucideIcons.circleCheck,
                                     color: AcousticColors.sonarCyan, size: 16),
                                 const SizedBox(width: 8),
                                 Expanded(
@@ -2543,7 +2190,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                       ),
-                      icon: const Icon(Icons.download_rounded, size: 18),
+                      icon: const Icon(LucideIcons.download, size: 18),
                       label: Text(
                         "Download & Install",
                         style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
@@ -2584,7 +2231,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
                             _showPatchNotificationAboveTabBar(
                               title: "DOWNLOAD FAILED",
                               message: "Failed to download OTA patch. Please try again.",
-                              icon: Icons.error_outline,
+                              icon: LucideIcons.circleAlert,
                               color: Colors.redAccent,
                               duration: const Duration(seconds: 5),
                             );
@@ -2609,7 +2256,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
     _showPatchNotificationAboveTabBar(
       title: "OTA SYNC",
       message: "Checking Infortts OTA servers for patch updates...",
-      icon: Icons.sync,
+      icon: LucideIcons.refreshCw,
       color: AcousticColors.sonarCyan,
       duration: const Duration(seconds: 5),
     );
@@ -2643,7 +2290,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
         _showPatchNotificationAboveTabBar(
           title: "SYSTEM UP TO DATE",
           message: "✓ No updates available. System is up to date (Patch #${currentLocalPatch} active).",
-          icon: Icons.check_circle_outline,
+          icon: LucideIcons.circleCheck,
           color: const Color(0xFF10B981),
           duration: const Duration(seconds: 5),
         );
@@ -2652,7 +2299,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
       _showPatchNotificationAboveTabBar(
         title: "OTA ERROR",
         message: "Failed to connect to OTA servers: $e",
-        icon: Icons.error_outline,
+        icon: LucideIcons.circleAlert,
         color: Colors.redAccent,
         duration: const Duration(seconds: 5),
       );
@@ -2669,7 +2316,7 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: BorderSide(color: AcousticColors.sonarCyan, width: 1.2)),
         title: Row(
           children: [
-            Icon(Icons.check_circle_outline_rounded, color: AcousticColors.sonarCyan, size: 22),
+            Icon(LucideIcons.circleCheck, color: AcousticColors.sonarCyan, size: 22),
             const SizedBox(width: 8),
             Text("Patch Installed!", style: GoogleFonts.outfit(color: AcousticColors.titanium, fontWeight: FontWeight.bold, fontSize: 16)),
           ],
@@ -2698,28 +2345,11 @@ Text("Infortts OTA", style: GoogleFonts.outfit(color: AcousticColors.steel, font
                 }
               }
             },
-            icon: const Icon(Icons.restart_alt_rounded, size: 16),
+            icon: const Icon(LucideIcons.rotateCcw, size: 16),
             label: Text("Restart Now", style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSettingsToggle(String label, bool initialVal) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: GoogleFonts.jetBrainsMono(fontSize: 10, color: AcousticColors.titanium),
-        ),
-        Switch(
-          value: initialVal,
-          onChanged: (_) {},
-          activeColor: AcousticColors.sonarCyan,
-        ),
-      ],
     );
   }
 
@@ -2924,7 +2554,7 @@ void showTopSnackBar(
   BuildContext context, {
   required String message,
   String title = "SYSTEM ALERT",
-  IconData icon = Icons.notifications_active_rounded,
+  IconData icon = LucideIcons.bellRing,
   Color color = const Color(0xFF00D2FF),
   Duration duration = const Duration(seconds: 4),
 }) {
@@ -3083,7 +2713,7 @@ class _TopSnackBarOverlayWidgetState extends State<_TopSnackBarOverlayWidget> wi
                   },
                   child: Padding(
                     padding: const EdgeInsets.all(4.0),
-                    child: Icon(Icons.close, size: 16, color: closeColor),
+                    child: Icon(LucideIcons.x, size: 16, color: closeColor),
                   ),
                 ),
               ],
@@ -3129,7 +2759,7 @@ Future<void> showInforttsAuthBottomSheet(BuildContext context) async {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.shield_outlined, color: AcousticColors.sonarCyan, size: 20),
+                          Icon(LucideIcons.shield, color: AcousticColors.sonarCyan, size: 20),
                           const SizedBox(width: 8),
                           Text(
                             "GLYCOCALYX IAM AUTH",
@@ -3143,7 +2773,7 @@ Future<void> showInforttsAuthBottomSheet(BuildContext context) async {
                         ],
                       ),
                       IconButton(
-                        icon: Icon(Icons.close, color: AcousticColors.steel, size: 18),
+                        icon: Icon(LucideIcons.x, color: AcousticColors.steel, size: 18),
                         onPressed: () => Navigator.of(dialogCtx).pop(),
                       ),
                     ],
@@ -3185,7 +2815,7 @@ Future<void> showInforttsAuthBottomSheet(BuildContext context) async {
                                   context,
                                   title: "AUTHENTICATED",
                                   message: "Signed in as ${session.displayName}",
-                                  icon: Icons.check_circle_outline,
+                                  icon: LucideIcons.circleCheck,
                                   color: AcousticColors.sonarCyan,
                                 );
                               }
@@ -3199,7 +2829,7 @@ Future<void> showInforttsAuthBottomSheet(BuildContext context) async {
                               });
                             }
                           },
-                    icon: Icon(Icons.security, size: 16, color: AcousticColors.sonarCyan),
+                    icon: Icon(LucideIcons.shield, size: 16, color: AcousticColors.sonarCyan),
                     label: Text(
                       "CONTINUE WITH GOOGLE SSO",
                       style: TextStyle(
@@ -3283,7 +2913,7 @@ Future<void> showInforttsAuthBottomSheet(BuildContext context) async {
                                   context,
                                   title: "AUTHENTICATED",
                                   message: "Signed in as ${session.displayName}",
-                                  icon: Icons.check_circle_outline,
+                                  icon: LucideIcons.circleCheck,
                                   color: AcousticColors.sonarCyan,
                                 );
                               }

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -372,37 +373,37 @@ class InforttsOtaBadge extends StatelessWidget {
           case InforttsOtaState.checking:
             badgeColor = AcousticColors.sonarCyan;
             badgeText = 'CHECKING OTA...';
-            badgeIcon = Icons.sync;
+            badgeIcon = LucideIcons.refreshCw;
             break;
           case InforttsOtaState.updateAvailable:
             badgeColor = AcousticColors.warnOrange;
             badgeText = 'UPDATE AVAILABLE (v${telemetry.latestVersion})';
-            badgeIcon = Icons.system_update_alt;
+            badgeIcon = LucideIcons.downloadCloud;
             break;
           case InforttsOtaState.downloading:
             badgeColor = AcousticColors.sonarCyan;
             badgeText = 'DOWNLOADING PATCH...';
-            badgeIcon = Icons.downloading;
+            badgeIcon = LucideIcons.download;
             break;
           case InforttsOtaState.readyToRestart:
             badgeColor = Colors.green;
             badgeText = kIsWeb ? 'NEW VERSION READY (RELOAD PAGE)' : 'PATCH READY (RESTART APP)';
-            badgeIcon = Icons.check_circle;
+            badgeIcon = LucideIcons.circleCheck;
             break;
           case InforttsOtaState.upToDate:
             badgeColor = Colors.green;
             badgeText = 'UP TO DATE (v${telemetry.currentVersion})';
-            badgeIcon = Icons.verified;
+            badgeIcon = LucideIcons.badgeCheck;
             break;
           case InforttsOtaState.error:
             badgeColor = AcousticColors.warnOrange;
             badgeText = 'OTA OFFLINE';
-            badgeIcon = Icons.wifi_off;
+            badgeIcon = LucideIcons.wifiOff;
             break;
           default:
             badgeColor = Colors.grey;
             badgeText = 'v${telemetry.currentVersion}';
-            badgeIcon = Icons.info_outline;
+            badgeIcon = LucideIcons.info;
         }
 
         return GestureDetector(
@@ -437,7 +438,7 @@ class InforttsOtaBadge extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.system_update, color: AcousticColors.sonarCyan),
+            Icon(LucideIcons.refreshCw, color: AcousticColors.sonarCyan),
             const SizedBox(width: 8),
             Text('${telemetry.appName.toUpperCase()} OTA Updater'),
           ],
@@ -472,7 +473,7 @@ class InforttsOtaBadge extends StatelessWidget {
                   exit(0);
                 }
               },
-              icon: const Icon(Icons.restart_alt),
+              icon: const Icon(LucideIcons.rotateCcw),
               label: Text(kIsWeb ? 'Reload Page Now' : 'Restart App Now'),
             )
           else if (telemetry.isUpdateAvailable)

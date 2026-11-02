@@ -2,6 +2,8 @@ library infortts_shared;
 
 export 'theme.dart';
 export 'design.dart';
+export 'emblem/emblem_painter.dart';
+export 'emblem/emblem_spec.dart';
 export 'selection.dart';
 export 'card.dart';
 export 'status.dart';
@@ -25,4 +27,5 @@ export 'infortts_notification_center.dart';
 export 'notification_helper.dart';
 export 'glass.dart';
 export 'adaptive_station.dart';
+export 'package:lucide_icons_flutter/lucide_icons.dart';
 

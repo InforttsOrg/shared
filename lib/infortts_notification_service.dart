@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -412,7 +413,7 @@ class InforttsNotificationService extends ChangeNotifier {
             context,
             title: "NOTIFICATIONS ACTIVE",
             message: notifBody,
-            icon: Icons.notifications_active_rounded,
+            icon: LucideIcons.bellRing,
             color: AcousticColors.sonarCyan,
           );
         }
@@ -690,7 +691,7 @@ class InforttsNotificationService extends ChangeNotifier {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.notifications_active_outlined, color: AcousticColors.sonarCyan, size: 22),
+                          Icon(LucideIcons.bellRing, color: AcousticColors.sonarCyan, size: 22),
                           const SizedBox(width: 10),
                           Text(
                             modalTitle,
@@ -704,7 +705,7 @@ class InforttsNotificationService extends ChangeNotifier {
                         ],
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                        icon: const Icon(LucideIcons.x, color: Colors.white70, size: 20),
                         onPressed: () async {
                           final prefs = await SharedPreferences.getInstance();
                           await prefs.setBool(_kPromptDismissedKey, true);
@@ -779,7 +780,7 @@ class InforttsNotificationService extends ChangeNotifier {
                                 padding: const EdgeInsets.symmetric(vertical: 12),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
-                              icon: const Icon(Icons.check_circle_outline, size: 18),
+                              icon: const Icon(LucideIcons.circleCheck, size: 18),
                               label: Text(
                                 'GRANT NOTIFICATION ACCESS',
                                 style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
@@ -809,7 +810,7 @@ class InforttsNotificationService extends ChangeNotifier {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                       ),
-                      icon: const Icon(Icons.inbox_rounded, size: 18),
+                      icon: const Icon(LucideIcons.inbox, size: 18),
                       label: Text(
                         'OPEN NOTIFICATION INTELLIGENCE',
                         style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 12),

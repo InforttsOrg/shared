@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -67,27 +68,27 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
     final isMitochondria = lower.contains('mitochondria');
     if (isMitochondria) {
       return const [
-        {'id': 'ALL', 'label': 'ALL', 'icon': Icons.notifications_none_rounded},
-        {'id': 'INDIAN_STOCKS', 'label': '🇮🇳 INDIAN STOCKS', 'icon': Icons.trending_up_rounded},
-        {'id': 'MACRO', 'label': '🔴 MACRO & FOREX', 'icon': Icons.public_rounded},
-        {'id': 'TRADING', 'label': '⚡ TRADING', 'icon': Icons.bolt_rounded},
-        {'id': 'SYSTEM', 'label': '🛡️ SYSTEM', 'icon': Icons.security_rounded},
+        {'id': 'ALL', 'label': 'ALL', 'icon': LucideIcons.bell},
+        {'id': 'INDIAN_STOCKS', 'label': '🇮🇳 INDIAN STOCKS', 'icon': LucideIcons.trendingUp},
+        {'id': 'MACRO', 'label': '🔴 MACRO & FOREX', 'icon': LucideIcons.globe},
+        {'id': 'TRADING', 'label': '⚡ TRADING', 'icon': LucideIcons.zap},
+        {'id': 'SYSTEM', 'label': '🛡️ SYSTEM', 'icon': LucideIcons.shield},
       ];
     }
     final isWaptia = lower.contains('waptia');
     if (isWaptia) {
       return const [
-        {'id': 'ALL', 'label': 'ALL', 'icon': Icons.notifications_none_rounded},
-        {'id': 'UPDATES', 'label': '🚀 PACKAGE UPDATES', 'icon': Icons.system_update_rounded},
-        {'id': 'STORE', 'label': '🛍️ STORE & DOWNLOADS', 'icon': Icons.download_done_rounded},
-        {'id': 'ANNOUNCEMENTS', 'label': '📢 ANNOUNCEMENTS', 'icon': Icons.campaign_rounded},
+        {'id': 'ALL', 'label': 'ALL', 'icon': LucideIcons.bell},
+        {'id': 'UPDATES', 'label': '🚀 PACKAGE UPDATES', 'icon': LucideIcons.refreshCw},
+        {'id': 'STORE', 'label': '🛍️ STORE & DOWNLOADS', 'icon': LucideIcons.checkCircle2},
+        {'id': 'ANNOUNCEMENTS', 'label': '📢 ANNOUNCEMENTS', 'icon': LucideIcons.megaphone},
       ];
     }
     return const [
-      {'id': 'ALL', 'label': 'ALL', 'icon': Icons.notifications_none_rounded},
-      {'id': 'UPDATES', 'label': '🚀 PACKAGE UPDATES', 'icon': Icons.system_update_rounded},
-      {'id': 'SYSTEM', 'label': '🛡️ SYSTEM & SECURITY', 'icon': Icons.security_rounded},
-      {'id': 'ECOSYSTEM', 'label': '🌐 ECOSYSTEM FLEET', 'icon': Icons.hub_rounded},
+      {'id': 'ALL', 'label': 'ALL', 'icon': LucideIcons.bell},
+      {'id': 'UPDATES', 'label': '🚀 PACKAGE UPDATES', 'icon': LucideIcons.refreshCw},
+      {'id': 'SYSTEM', 'label': '🛡️ SYSTEM & SECURITY', 'icon': LucideIcons.shield},
+      {'id': 'ECOSYSTEM', 'label': '🌐 ECOSYSTEM FLEET', 'icon': LucideIcons.network},
     ];
   }
 
@@ -222,7 +223,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
               shape: BoxShape.circle,
               border: Border.all(color: AcousticColors.sonarCyan, width: 0.8),
             ),
-            child: Icon(Icons.notifications_active_rounded, color: AcousticColors.sonarCyan, size: 18),
+            child: Icon(LucideIcons.bellRing, color: AcousticColors.sonarCyan, size: 18),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -279,14 +280,14 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
               onPressed: () {
                 service.markAllAsRead(category: _selectedCategory == 'ALL' ? null : _selectedCategory);
               },
-              icon: Icon(Icons.done_all_rounded, size: 14, color: AcousticColors.sonarCyan),
+              icon: Icon(LucideIcons.checkCheck, size: 14, color: AcousticColors.sonarCyan),
               label: Text(
                 "Mark all read",
                 style: GoogleFonts.outfit(color: AcousticColors.sonarCyan, fontSize: 10, fontWeight: FontWeight.bold),
               ),
             ),
           IconButton(
-            icon: Icon(Icons.refresh_rounded, size: 18, color: AcousticColors.steel),
+            icon: Icon(LucideIcons.refreshCw, size: 18, color: AcousticColors.steel),
             tooltip: "Refresh Feed",
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -294,7 +295,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
           ),
           const SizedBox(width: 6),
           IconButton(
-            icon: Icon(Icons.close_rounded, size: 18, color: AcousticColors.steel),
+            icon: Icon(LucideIcons.x, size: 18, color: AcousticColors.steel),
             tooltip: "Close",
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
@@ -390,7 +391,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
                 decoration: InputDecoration(
                   hintText: "Search symbol, title or topic...",
                   hintStyle: GoogleFonts.outfit(color: AcousticColors.midGray, fontSize: 10.5),
-                  prefixIcon: Icon(Icons.search_rounded, size: 14, color: AcousticColors.midGray),
+                  prefixIcon: Icon(LucideIcons.search, size: 14, color: AcousticColors.midGray),
                   prefixIconConstraints: const BoxConstraints(minWidth: 26, minHeight: 26),
                   contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
                   filled: true,
@@ -432,7 +433,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
               child: Row(
                 children: [
                   Icon(
-                    _unreadOnly ? Icons.check_box_rounded : Icons.check_box_outline_blank_rounded,
+                    _unreadOnly ? LucideIcons.checkSquare : LucideIcons.square,
                     size: 12,
                     color: _unreadOnly ? AcousticColors.sonarCyan : AcousticColors.steel,
                   ),
@@ -457,36 +458,36 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
   Widget _buildNotificationCard(InforttsNotificationEvent notif, InforttsNotificationService service) {
     Color tagColor = AcousticColors.midGray;
     String tagLabel = notif.category;
-    IconData tagIcon = Icons.notifications_rounded;
+    IconData tagIcon = LucideIcons.bell;
 
     if (notif.category == 'UPDATES' || notif.topic.contains('update') || notif.topic.contains('package')) {
       tagColor = AcousticColors.sonarCyan;
       tagLabel = '🚀 PACKAGE UPDATE';
-      tagIcon = Icons.system_update_rounded;
+      tagIcon = LucideIcons.refreshCw;
     } else if (notif.category == 'STORE' || notif.topic.contains('store') || notif.category == 'DOWNLOADS') {
       tagColor = Colors.greenAccent;
       tagLabel = '🛍️ STORE EVENT';
-      tagIcon = Icons.download_done_rounded;
+      tagIcon = LucideIcons.checkCircle2;
     } else if (notif.category == 'ANNOUNCEMENTS') {
       tagColor = const Color(0xFFFFB800);
       tagLabel = '📢 ANNOUNCEMENT';
-      tagIcon = Icons.campaign_rounded;
+      tagIcon = LucideIcons.megaphone;
     } else if (notif.isIndianStock) {
       tagColor = const Color(0xFFFF9933); // Saffron
       tagLabel = '🇮🇳 INDIAN STOCK';
-      tagIcon = Icons.trending_up_rounded;
+      tagIcon = LucideIcons.trendingUp;
     } else if (notif.isMacro) {
       tagColor = Colors.redAccent;
       tagLabel = '🔴 MACRO ALERT';
-      tagIcon = Icons.public_rounded;
+      tagIcon = LucideIcons.globe;
     } else if (notif.isTrading) {
       tagColor = AcousticColors.sonarCyan;
       tagLabel = '⚡ 1m A+ SETUP';
-      tagIcon = Icons.bolt_rounded;
+      tagIcon = LucideIcons.zap;
     } else if (notif.category == 'SYSTEM') {
       tagColor = const Color(0xFFA855F7);
       tagLabel = '🛡️ SYSTEM';
-      tagIcon = Icons.shield_rounded;
+      tagIcon = LucideIcons.shield;
     }
 
     return InkWell(
@@ -607,7 +608,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
                 // Mark read icon button
                 IconButton(
                   icon: Icon(
-                    notif.isRead ? Icons.mark_email_read_outlined : Icons.done_rounded,
+                    notif.isRead ? LucideIcons.mailCheck : LucideIcons.check,
                     size: 14,
                     color: notif.isRead ? AcousticColors.midGray.withOpacity(0.5) : AcousticColors.sonarCyan,
                   ),
@@ -648,7 +649,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
               const SizedBox(height: 6),
               Row(
                 children: [
-                  Icon(Icons.open_in_new_rounded, size: 10, color: AcousticColors.sonarCyan),
+                  Icon(LucideIcons.externalLink, size: 10, color: AcousticColors.sonarCyan),
                   const SizedBox(width: 4),
                   Text(
                     "Open details",
@@ -672,7 +673,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.mark_email_read_rounded, size: 36, color: AcousticColors.midGray.withOpacity(0.4)),
+          Icon(LucideIcons.mailCheck, size: 36, color: AcousticColors.midGray.withOpacity(0.4)),
           const SizedBox(height: 12),
           Text(
             "ALL CAUGHT UP",
@@ -703,7 +704,7 @@ class _InforttsNotificationCenterState extends State<InforttsNotificationCenter>
       child: Row(
         children: [
           Icon(
-            service.isGranted ? Icons.check_circle_rounded : Icons.notifications_paused_rounded,
+            service.isGranted ? LucideIcons.circleCheck : LucideIcons.bellOff,
             size: 12,
             color: service.isGranted ? Colors.greenAccent : AcousticColors.warnOrange,
           ),
@@ -764,7 +765,7 @@ class InforttsNotificationBell extends StatelessWidget {
           children: [
             IconButton(
               icon: Icon(
-                unreadCount > 0 ? Icons.notifications_active_rounded : Icons.notifications_outlined,
+                unreadCount > 0 ? LucideIcons.bellRing : LucideIcons.bell,
                 size: size,
                 color: unreadCount > 0 ? AcousticColors.sonarCyan : AcousticColors.steel,
               ),

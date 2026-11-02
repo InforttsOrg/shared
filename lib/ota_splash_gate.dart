@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -296,7 +297,7 @@ class _InforttsOtaSplashGateState extends State<InforttsOtaSplashGate>
                           ),
                           child: Center(
                             child: Icon(
-                              Icons.all_inclusive_rounded,
+                              LucideIcons.infinity,
                               size: 40,
                               color: accent,
                             ),

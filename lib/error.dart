@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'theme.dart';
@@ -17,7 +18,7 @@ Widget copyableText(String text, {TextStyle? style}) {
         children: [
           Flexible(child: Text(text, style: style)),
           const SizedBox(width: 6),
-          Icon(Icons.copy_rounded, size: 12, color: AcousticColors.midGray),
+          Icon(LucideIcons.copy, size: 12, color: AcousticColors.midGray),
         ],
       ),
     ),
@@ -43,7 +44,7 @@ void showErrorSnackBar(BuildContext context, String message) {
         },
         child: Row(
           children: [
-            Icon(Icons.copy_rounded, size: 14, color: AcousticColors.sonarCyan),
+            Icon(LucideIcons.copy, size: 14, color: AcousticColors.sonarCyan),
             const SizedBox(width: 8),
             Expanded(child: Text(message)),
           ],
@@ -71,7 +72,7 @@ Future<void> showErrorDialog(BuildContext context, String title, String message)
       ),
       title: Row(
         children: [
-          Icon(Icons.warning_amber_rounded, color: AcousticColors.warnOrange, size: 20),
+          Icon(LucideIcons.triangleAlert, color: AcousticColors.warnOrange, size: 20),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -118,7 +119,7 @@ Future<void> showErrorDialog(BuildContext context, String title, String message)
               ),
             ),
             const SizedBox(width: 6),
-            Icon(Icons.copy_rounded, size: 14, color: AcousticColors.midGray),
+            Icon(LucideIcons.copy, size: 14, color: AcousticColors.midGray),
           ],
         ),
       ),
@@ -156,7 +157,7 @@ Widget errorBanner(String message) {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.warning_rounded, size: 14, color: AcousticColors.warnOrange),
+          Icon(LucideIcons.triangleAlert, size: 14, color: AcousticColors.warnOrange),
           const SizedBox(width: 8),
           Flexible(
             child: Text(
@@ -168,7 +169,7 @@ Widget errorBanner(String message) {
             ),
           ),
           const SizedBox(width: 6),
-          Icon(Icons.copy_rounded, size: 10, color: AcousticColors.midGray),
+          Icon(LucideIcons.copy, size: 10, color: AcousticColors.midGray),
         ],
       ),
     ),
