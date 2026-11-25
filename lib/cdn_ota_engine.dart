@@ -235,13 +235,15 @@ class InforttsCdnOtaEngine {
       if (buildSignature != null && buildSignature!.isNotEmpty) 'signature=${Uri.encodeComponent(buildSignature!)}',
       if (buildNumber != null && buildNumber!.isNotEmpty) 'build=${Uri.encodeComponent(buildNumber!)}',
       'version=$baseAppVersion',
+      'channel=${Uri.encodeComponent(kOtaChannel)}',
     ].join('&');
 
-    // Candidate URLs prioritized on single centralized domain update.infortts.site
+    // Candidate URLs prioritized on Waptia Multi-Channel Updates API + Hugging Face CDN
     final candidateUrls = [
       '$otaBaseUrl/api/v1/ota/check?$queryParams',
-      '$otaBaseUrl/patches/$clean/v$baseAppVersion/manifest.json',
-      '$otaBaseUrl/ota/$clean/manifest.json',
+      '$otaBaseUrl/ota/$clean/manifest.json?channel=${Uri.encodeComponent(kOtaChannel)}',
+      '$otaBaseUrl/patches/$clean/v$baseAppVersion/manifest.json?channel=${Uri.encodeComponent(kOtaChannel)}',
+      'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$clean/channels/${Uri.encodeComponent(kOtaChannel)}/manifest.json',
       'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$clean/manifest.json',
       'https://huggingface.co/datasets/rttss/ota-patches/raw/main/$clean/v$baseAppVersion/manifest.json',
     ];
